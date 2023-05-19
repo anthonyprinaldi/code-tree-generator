@@ -59,7 +59,7 @@ class ASTParser():
             self.parse_node(child, child_dict)
             parent["children"].append(child_dict)
 
-    def save_dot_format(self, filepath: str = 'tree.dot') -> str:
+    def save_dot_format(self, filepath: str = 'tree.gv') -> str:
         if not self._AST:
             raise Exception("AST is empty. Use parse() first.")
         return self._get_dot_format(filepath)
