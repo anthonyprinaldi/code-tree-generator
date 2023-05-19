@@ -2,6 +2,7 @@ from tree_sitter import Language, Parser, Tree, Node, TreeCursor
 import json
 from typing import *
 import argparse
+import sys
 
 Language.build_library(
     'build/my-languages.so',
@@ -58,12 +59,12 @@ class ASTParser():
             self.parse_node(child, child_dict)
             parent["children"].append(child_dict)
 
-    def get_dot_format(self) -> str:
+    def save_dot_format(self, filepath: str = 'tree.dot') -> str:
         if not self._AST:
             raise Exception("AST is empty. Use parse() first.")
-        return self._get_dot_format()
+        return self._get_dot_format(filepath)
     
-    def _get_dot_format(self) -> str:
+    def _get_dot_format(self, filepath: str) -> str:
         edges = []
         nodes = []
         counts = {}
@@ -89,6 +90,8 @@ class ASTParser():
                     edges.append((name, item))
 
         get_edges(self._AST)
+        real_stdout = sys.stdout
+        sys.stdout = open(filepath, 'w')
 
         # Dump edge list in Graphviz DOT format
         print('strict digraph tree {')
@@ -97,6 +100,9 @@ class ASTParser():
         for node in nodes:
             print('    "{0}" [xlabel="{1}->{2}"];'.format(*node))
         print('}')
+
+        sys.stdout.close()
+        sys.stdout = real_stdout
 
 def main(args):
     parser = Parser()
@@ -112,7 +118,7 @@ def main(args):
     ast = ASTParser(tree)
     ast.parse()
 
-    ast.get_dot_format()
+    ast.save_dot_format()
 
 
     # import ast
