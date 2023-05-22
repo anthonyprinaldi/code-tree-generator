@@ -4,10 +4,12 @@ class Node:
     def __init__(self, 
                  id: str,
                  start: str,
-                 end: str) -> None:
+                 end: str,
+                 text: Optional[str] = None) -> None:
         self._id = id
         self._start = start
         self._end = end
+        self._text = text
         self._adjacent : Dict[Node, int] = {}
 
     @property
@@ -17,6 +19,14 @@ class Node:
     @id.setter
     def id(self, value: str) -> None:
         raise Exception("id is read-only.")
+
+    @property
+    def text(self) -> str:
+        return self._text if self._text else ""
+
+    @text.setter
+    def text(self, value: str) -> None:
+        self._text = value
 
     def __str__(self) -> str:
         return str(self.id) + ' adjacent: ' + str([x.id for x in self._adjacent])
@@ -37,11 +47,16 @@ class Graph:
     
     def __iter__(self) -> Iterator[Node]:
         return iter(self.vert_dict.values())
+    
+    def __str__(self) -> str:
+        return '----------\n' + \
+            '\n-\n'.join(str(node) for node in iter(self)) + \
+            '\n----------'
 
     def add_vertex(self, node: Node) -> Node:
         self.num_vertices = self.num_vertices + 1
         self.vert_dict[node.id] = node
-        return node
+        return node.id
 
     def get_vertex(self, id: str) -> Node:
         if id in self.vert_dict:
