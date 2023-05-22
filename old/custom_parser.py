@@ -1,8 +1,11 @@
-from tree_sitter import Language, Parser, Tree, Node, TreeCursor
-import json
-from typing import *
 import argparse
+import json
 import sys
+from typing import *
+
+from tree_sitter import Language, Node, Parser, Tree, TreeCursor
+
+from import_tracking import track_imports
 
 Language.build_library(
     'build/my-languages.so',
@@ -12,11 +15,14 @@ Language.build_library(
 PYTHON = Language('build/my-languages.so', 'python')
 
 class ASTParser():
-    def __init__(self, tree: Tree) -> None:
+    def __init__(self, tree: Tree, f: str) -> None:
         super().__init__()
         self._tree : Tree = tree
         self._cursor : TreeCursor = self._tree.walk()
         self._root : Node = self._tree.root_node
+        self._f : str = f
+        # self._imports : Dict[str, str] = track_imports(f)
+        # print(self._imports)
 
         self._AST = dict()
 
@@ -115,7 +121,7 @@ def main(args):
     tree = parser.parse(bytes(file, "utf8"))
 
 
-    ast = ASTParser(tree)
+    ast = ASTParser(tree, file)
     ast.parse()
 
     ast.save_dot_format()
