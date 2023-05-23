@@ -14,10 +14,11 @@ Language.build_library(
 
 PYTHON = Language('build/my-languages.so', 'python')
 
-# get all python builtins
-BUILTINS = dir(__builtins__)
 
 class ASTFileParser():
+
+    BUILTINS = dir(__builtins__)
+
     def __init__(self, filepath: str) -> None:
         super().__init__()
 
@@ -97,7 +98,7 @@ class ASTFileParser():
             id = parent.add_vertex(n_)
 
             # handle function calls
-            if node.type == 'call' and node.children[0].text.decode("utf-8") not in BUILTINS:
+            if node.type == 'call' and node.children[0].text.decode("utf-8") not in self.BUILTINS:
                 self._handle_call(node, parent, name)
 
             # handle imports
@@ -220,6 +221,9 @@ def main():
 
     ast = ASTFileParser(args.file)
     ast.parse()
+    print(ast._function_calls)
+    print(ast._imports)
+    print(ast._function_definitions)
 
     ast.save_dot_format()
 
