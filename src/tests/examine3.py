@@ -1,3 +1,7 @@
+from module1.temp import ONE
+
+print(ONE)
+
 print("Hello world")
 
 num1 = 1.5
@@ -20,3 +24,15 @@ else:
 
 num_sqrt = num ** 0.5
 print('The square root of %0.3f is %0.3f'%(num ,num_sqrt))
+
+class TestClass(object):
+    def __init__(self, a):
+        self.a = a
+    def __str__(self):
+        return 'Wow ' + str(self.a)
+    def method1(self):
+        print('method1')
+
+obj = TestClass(10)
+print(obj)
+obj.method1()
