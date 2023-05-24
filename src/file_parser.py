@@ -44,19 +44,19 @@ class ASTFileParser():
         self._counts : Dict[str, int] = {}
 
         # track calls to functions and their locations
-        # key: function name
-        # value: list of tuples of (file, node name)
-        self._function_calls : Dict[str, List[Tuple[str, str]]] = {}
+        # key: file name
+        # value: dict of (function name, node name)
+        self._function_calls : Dict[str, Dict[str, str]] = {}
 
         # track imports and their locations
-        # key: import name
-        # value: list of tuples of (file, node name)
-        self._imports : Dict[str, List[Tuple[str, str]]] = {}
+        # key: file name
+        # value: dict of (function name, node name)
+        self._imports : Dict[str, Dict[str, str]] = {}
 
         # track function definitions and their locations
-        # key: function name
-        # value: list of tuples of (file, node name)
-        self._function_definitions : Dict[str, List[Tuple[str, str]]] = {}
+        # key: file name
+        # value: dict of (function name, node name)
+        self._function_definitions : Dict[str, Dict[str, str]] = {}
 
     @property
     def AST(self) -> dict[str, Any]:
@@ -137,20 +137,17 @@ class ASTFileParser():
     def _handle_call(self, node: Node, parent: G, id: str) -> None:
         # get function name
         function_name = node.children[0].text.decode("utf-8")
-        # get function call location
-        location = (self._filepath, id)
         # add function call to dict
-        if function_name not in self._function_calls:
-            self._function_calls[function_name] = [location]
+        if self._filepath not in self._function_calls:
+            self._function_calls[self._filepath] = {function_name: id}
         else:
-            self._function_calls[function_name].append(location)
+            self._function_calls[self._filepath][function_name] = id
 
         # add edge from the call to the import statment if it exists
+        # TODO: fix this for long series of calls
         function_name = function_name if len(function_name.split('.')) <= 1 else function_name.split('.')[0]
-        if function_name in self._imports:
-            for import_location in self._imports[function_name]:
-                if import_location[0] == self._filepath:
-                    parent.add_edge(id, import_location[1])
+        if function_name in self._imports[self._filepath]:
+            parent.add_edge(id, self._imports[self._filepath][function_name])
         
     def _handle_import(self, node: Node, parent: G, id: str) -> None:
         if node.type == 'aliased_import':
@@ -164,34 +161,33 @@ class ASTFileParser():
         # add import to dict
         for import_, id_ in import_name:
             # get import location
-            location = (self._filepath, id_)
-            if import_ not in self._imports:
-                self._imports[import_] = [location]
+            if self._filepath not in self._imports:
+                self._imports[self._filepath] = {import_: id_}
             else:
-                self._imports[import_].append(location)
+                self._imports[self._filepath][import_] = id_
 
     def _handle_definition(self, node: Node, parent: G, id: str) -> None:
         # get function name
         function_name = node.children[1].text.decode("utf-8")
-        # get function definition location
-        location = (self._filepath, id)
         # add function definition to dict
-        if function_name not in self._function_definitions:
-            self._function_definitions[function_name] = [location]
+        if self._filepath not in self._function_definitions:
+            self._function_definitions[self._filepath] = {function_name: id}
         else:
-            self._function_definitions[function_name].append(location)
+            self._function_definitions[self._filepath][function_name] = id
 
     def _resolve_imports(self, parent: G) -> None:
         # connect all function calls to their definitions
-        for function_name in self._function_calls:
+        if not self._function_calls:
+            return
+        for function_name in self._function_calls[self._filepath]:
             # check if function is defined
-            if function_name in self._function_definitions:
+            if self._function_definitions and function_name in self._function_definitions[self._filepath]:
                 # add edge
-                for call_location, call_node_name in self._function_calls[function_name]:
-                    for definition_location, definition_node_name in self._function_definitions[function_name]:
-                        if call_location == definition_location:
-                            parent.add_edge(call_node_name, definition_node_name)
-                            parent.add_edge(definition_node_name, call_node_name)
+                # for call_function_name, call_node_name in self._function_calls[self._filepath].items():
+                #     for definition_location, definition_node_name in self._function_definitions[function_name]:
+                #         if call_location == definition_location:
+                parent.add_edge(self._function_calls[self._filepath][function_name], self._function_definitions[self._filepath][function_name])
+                parent.add_edge(self._function_definitions[self._filepath][function_name], self._function_calls[self._filepath][function_name])
 
     def save_dot_format(self, filepath: str = 'tree.gv') -> str:
         if not self._AST:
@@ -291,7 +287,6 @@ class ASTFileParser():
 
         neighbors(g, node_id, depth)
 
-        print(g_k)
         g_k.write('tree.gv')
 
         
@@ -303,7 +298,11 @@ def main():
 
     ast = ASTFileParser(args.file)
     ast.parse()
-    ast.to_csv()
+    ast.convert_to_graphviz()
+    print(ast._imports)
+    print(ast._function_calls)
+    print(ast._function_definitions)
+    # ast.to_csv()
 
     # import ast
     # print(ast.dump(ast.parse(file), indent = 5))
