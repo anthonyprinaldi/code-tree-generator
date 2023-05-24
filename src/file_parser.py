@@ -3,6 +3,11 @@ import sys
 from typing import *
 
 from tree_sitter import Language, Node, Parser, Tree, TreeCursor
+from graphviz import Digraph
+import networkx as nx
+import numpy as np
+import pandas as pd
+import pygraphviz as pgv
 
 from graph import Graph as G
 from graph import Node as N
@@ -85,6 +90,10 @@ class ASTFileParser():
             
             name = node.type if not text else node.type + ' | ' + text
 
+            # add file name to root node
+            if node.type == 'module':
+                name = node.type + ' | ' + self._filepath
+
             if name not in self._counts:
                 self._counts[name] = 0
                 name = name + '_' + str(self._counts[name])
@@ -107,7 +116,7 @@ class ASTFileParser():
                 self._handle_import(node, parent, name)
 
             # handle function definitions
-            if node.type == 'function_definition':
+            if node.type == 'function_definition' or node.type == 'class_definition':
                 self._handle_definition(node, parent, name)
             
             for child in node.children:
@@ -182,6 +191,7 @@ class ASTFileParser():
                     for definition_location, definition_node_name in self._function_definitions[function_name]:
                         if call_location == definition_location:
                             parent.add_edge(call_node_name, definition_node_name)
+                            parent.add_edge(definition_node_name, call_node_name)
 
     def save_dot_format(self, filepath: str = 'tree.gv') -> str:
         if not self._AST:
@@ -213,6 +223,78 @@ class ASTFileParser():
 
         sys.stdout.close()
         sys.stdout = real_stdout
+    
+    def convert_to_graphviz(self) -> pgv.AGraph:
+        if not self._AST:
+            raise Exception("AST is empty. Use parse() first.")
+        return self._convert_to_graphviz()
+    
+    def _convert_to_graphviz(self) -> pgv.AGraph:
+        nodes = self._AST.get_vertices()
+        edges = []
+        # g = Digraph('G', filename='tree.gv')
+        g = pgv.AGraph(strict=True, directed=True)
+
+
+        for node in nodes:
+            n : N = self._AST.get_vertex(node)
+            g.add_node(
+                n.id,
+                xlabel=f'{n._start}->{n._end}',
+            )
+            edges.extend([(n.id, x.id) for x in n.get_connections()])
+
+        g.add_edges_from(edges)
+        g.write('tree.gv')
+        return g
+
+    def to_csv(self) -> None:
+        if not self._AST:
+            raise Exception("AST is empty. Use parse() first.")
+        self._to_csv()
+
+    def _to_csv(self) -> None:
+        g : pgv.AGraph = self.convert_to_graphviz()
+        g : nx.DiGraph = nx.nx_agraph.from_agraph(g)
+
+        nodes = [n for n in g.nodes()]
+        feats = [feat['xlabel'] for node, feat in dict(g.nodes(data=True)).items()]
+        node_feats = pd.DataFrame({'node': nodes, 'feat': feats})
+        node_feats.to_csv('node_feats.csv', index = False)
+        del node_feats
+        del nodes
+        del feats
+        adj = nx.to_numpy_array(g, dtype = np.bool_, weight = None)
+        np.savetxt('adj.csv', adj, delimiter = ',', fmt = '%.0f')
+
+    def _to_networkx(self) -> nx.DiGraph:
+        g : pgv.AGraph = self.convert_to_graphviz()
+        return nx.nx_agraph.from_agraph(g)
+
+    def view_k_neighbors(self,
+                         node_id: str,
+                         k: int = 10
+                        ) -> None:
+        g : nx.DiGraph = self._to_networkx()
+        g_k = pgv.AGraph(strict=True, directed=True)
+        g_k.add_node(node_id)
+
+        depth = 0
+
+        def neighbors(g: nx.DiGraph, node_id: str, depth: int) -> None:
+            if depth >= k:
+                return
+            depth += 1
+            for neighbor in g.neighbors(node_id):
+                g_k.add_edge(node_id, neighbor)
+                neighbors(g, neighbor, depth)
+
+        neighbors(g, node_id, depth)
+
+        print(g_k)
+        g_k.write('tree.gv')
+
+        
 
 def main():
     arg_parser = argparse.ArgumentParser()
@@ -221,11 +303,7 @@ def main():
 
     ast = ASTFileParser(args.file)
     ast.parse()
-    print(ast._function_calls)
-    print(ast._imports)
-    print(ast._function_definitions)
-
-    ast.save_dot_format()
+    ast.to_csv()
 
     # import ast
     # print(ast.dump(ast.parse(file), indent = 5))
