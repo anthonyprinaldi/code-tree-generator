@@ -6,12 +6,14 @@ class Node:
                  start: str,
                  end: str,
                  text: Optional[str] = None,
-                 type: Optional[str] = None) -> None:
+                 type: Optional[str] = None,
+                 var_name: Optional[str] = None) -> None:
         self._id = id
         self._start = start
         self._end = end
         self._text = text
         self._type = type
+        self._var_name = var_name
         self._adjacent : Dict[Node, int] = {}
 
     @property
@@ -37,6 +39,14 @@ class Node:
     @type.setter
     def type(self, value: str) -> None:
         self._type = value
+
+    @property
+    def var_name(self) -> str:
+        return self._var_name if self._var_name else ""
+
+    @var_name.setter
+    def var_name(self, value: str) -> None:
+        self._var_name = value
 
     def __str__(self) -> str:
         return str(self.id) + ' adjacent: ' + str([x.id for x in self._adjacent])
