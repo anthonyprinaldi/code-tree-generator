@@ -58,6 +58,11 @@ class ASTFileParser():
         # value: dict of (function name, node name)
         self._function_definitions : Dict[str, Dict[str, str]] = {}
 
+        # track edges to be added at the end
+        # don't add edges right away b/c ruins tree structure and traversal
+        # (node_id_to, node_id_from)
+        self._edges_to_add : List[Tuple[str, str]] = []
+
     @property
     def AST(self) -> dict[str, Any]:
         return self._AST
@@ -76,9 +81,9 @@ class ASTFileParser():
             file = myfile.read()
         return self._parser.parse(bytes(file, "utf8"))
     
-    def parse(self) -> None:
+    def parse(self) -> str:
     
-        def _parse_node(node: Node, parent: G) -> None:
+        def _parse_node(node: Node, parent: G) -> str:
             
 
             # add text if node is terminal
@@ -101,7 +106,7 @@ class ASTFileParser():
                 self._counts[name] += 1
                 name = name + '_' + str(self._counts[name])
             
-            n_ = N(name, node.start_point, node.end_point)
+            n_ = N(name, node.start_point, node.end_point, type = node.type)
             if text:
                 n_.text = text
             id = parent.add_vertex(n_)
@@ -128,11 +133,13 @@ class ASTFileParser():
             
             return id
     
-        _parse_node(self._root, self._AST)
+        root_id = _parse_node(self._root, self._AST)
 
         # check if this is a file or dir parser
         if type(self) == ASTFileParser:
             self._resolve_imports(self._AST)
+
+        return root_id
 
     def _handle_call(self, node: Node, parent: G, id: str) -> None:
         # get function name
@@ -145,9 +152,17 @@ class ASTFileParser():
 
         # add edge from the call to the import statment if it exists
         # TODO: fix this for long series of calls
-        function_name = function_name if len(function_name.split('.')) <= 1 else function_name.split('.')[0]
-        if function_name in self._imports[self._filepath]:
-            parent.add_edge(id, self._imports[self._filepath][function_name])
+        self._call_to_import(function_name, parent, id)
+    
+    def _call_to_import(self, function_call: str, parent: G, id: str) -> None:
+        if function_call in self._imports[self._filepath]:
+            # parent.add_edge(id, self._imports[self._filepath][function_call])
+            self._edges_to_add.append((id, self._imports[self._filepath][function_call]))
+            return
+        if '.' in function_call:
+            # function_name = function_name if len(function_name.split('.')) <= 1 else function_name.split('.')[0]
+            function_call = function_call[:function_call.rfind('.')]
+            self._call_to_import(function_call, parent, id)
         
     def _handle_import(self, node: Node, parent: G, id: str) -> None:
         if node.type == 'aliased_import':
@@ -188,6 +203,10 @@ class ASTFileParser():
                 #         if call_location == definition_location:
                 parent.add_edge(self._function_calls[self._filepath][function_name], self._function_definitions[self._filepath][function_name])
                 parent.add_edge(self._function_definitions[self._filepath][function_name], self._function_calls[self._filepath][function_name])
+
+        # add import edges at the end
+        for edge_from, edge_to in self._edges_to_add:
+            parent.add_edge(edge_from, edge_to)
 
     def save_dot_format(self, filepath: str = 'tree.gv') -> str:
         if not self._AST:
