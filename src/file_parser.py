@@ -50,8 +50,8 @@ class ASTFileParser():
 
         # track imports and their locations
         # key: file name
-        # value: dict of (function name, node name)
-        self._imports : Dict[str, Dict[str, str]] = {}
+        # value: dict of (function name, (node name, import path))
+        self._imports : Dict[str, Dict[str, (str, str)]] = {}
 
         # track function definitions and their locations
         # key: file name
@@ -62,6 +62,16 @@ class ASTFileParser():
         # don't add edges right away b/c ruins tree structure and traversal
         # (node_id_to, node_id_from)
         self._edges_to_add : List[Tuple[str, str]] = []
+
+        # track assignments
+        # key: file name
+        # value: dict of (variable name, variable type, node name)
+        self._assignments : Dict[str, Dict[str, Tuple[str, str]]] = {}
+
+        # track classes and their attributes
+        # key: file name
+        # value: dict of (class name, dict of (attribute name, node name))
+        self._classes : Dict[str, Dict[str, Dict[str, str]]] = {}
 
     @property
     def AST(self) -> dict[str, Any]:
@@ -98,18 +108,22 @@ class ASTFileParser():
             # add file name to root node
             if node.type == 'module':
                 name = node.type + ' | ' + self._filepath
-
-            if name not in self._counts:
-                self._counts[name] = 0
-                name = name + '_' + str(self._counts[name])
             else:
-                self._counts[name] += 1
-                name = name + '_' + str(self._counts[name])
+                if name not in self._counts:
+                    self._counts[name] = 0
+                    name = name + '_' + str(self._counts[name])
+                else:
+                    self._counts[name] += 1
+                    name = name + '_' + str(self._counts[name])
             
             n_ = N(name, node.start_point, node.end_point, type = node.type)
             if text:
                 n_.text = text
             id = parent.add_vertex(n_)
+
+            # track variable name for identifier nodes
+            if node.type == 'identifier':
+                n_.var_name = node.text.decode("utf-8")
 
             # handle function calls
             if node.type == 'call' and node.children[0].text.decode("utf-8") not in self.BUILTINS:
@@ -157,7 +171,7 @@ class ASTFileParser():
     def _call_to_import(self, function_call: str, parent: G, id: str) -> None:
         if function_call in self._imports[self._filepath]:
             # parent.add_edge(id, self._imports[self._filepath][function_call])
-            self._edges_to_add.append((id, self._imports[self._filepath][function_call]))
+            self._edges_to_add.append((id, self._imports[self._filepath][function_call][0]))
             return
         if '.' in function_call:
             # function_name = function_name if len(function_name.split('.')) <= 1 else function_name.split('.')[0]
@@ -166,20 +180,28 @@ class ASTFileParser():
         
     def _handle_import(self, node: Node, parent: G, id: str) -> None:
         if node.type == 'aliased_import':
-            import_name = [(node.children[2].text.decode("utf-8"), id)]
+            if node.parent.type == 'import_from_statement':
+                import_path = node.parent.children[1].text.decode("utf-8") + '.' + node.children[0].text.decode("utf-8")
+            elif node.parent.type == 'import_statement':
+                import_path = node.children[0].text.decode("utf-8")
+            import_name = [(node.children[2].text.decode("utf-8"), id, import_path)]
         elif node.type == 'dotted_name':
             # skip the first dotted name of the import from
             if node.parent.type == 'import_from_statement' and node.parent.children[1] == node:
                 return
-            import_name = [(node.children[0].text.decode("utf-8"), id)]
+            if node.parent.type == 'import_from_statement':
+                import_path = node.parent.children[1].text.decode("utf-8")
+            elif node.parent.type == 'import_statement':
+                import_path = node.text.decode("utf-8")
+            import_name = [(node.text.decode("utf-8"), id, import_path)]
             
         # add import to dict
-        for import_, id_ in import_name:
+        for import_, id_, import_path_ in import_name:
             # get import location
             if self._filepath not in self._imports:
-                self._imports[self._filepath] = {import_: id_}
+                self._imports[self._filepath] = {import_: (id_, import_path_)}
             else:
-                self._imports[self._filepath][import_] = id_
+                self._imports[self._filepath][import_] = (id_, import_path_)
 
     def _handle_definition(self, node: Node, parent: G, id: str) -> None:
         # get function name
@@ -190,6 +212,7 @@ class ASTFileParser():
         else:
             self._function_definitions[self._filepath][function_name] = id
 
+    # TODO: make this work with single files again
     def _resolve_imports(self, parent: G) -> None:
         # connect all function calls to their definitions
         if not self._function_calls:
