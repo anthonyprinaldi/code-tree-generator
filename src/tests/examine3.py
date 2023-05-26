@@ -1,5 +1,7 @@
 from module1.temp import ONE
+import module1.temp
 
+print(module1.temp.ONE)
 print(ONE)
 
 print("Hello world")
@@ -36,3 +38,5 @@ class TestClass(object):
 obj = TestClass(10)
 print(obj)
 obj.method1()
+
+# a, b = 1, 2
