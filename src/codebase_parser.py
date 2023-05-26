@@ -63,7 +63,11 @@ class ASTCodebaseParser(ASTFileParser):
             self._root = tree.root_node
             root_id = self.parse()
             roots.append(root_id)
-
+        # clear assignments, definition and classes
+        self._function_definitions = {}
+        self._assignments = {}
+        self._classes = {}
+        # second loop
         for root in roots:
             filepath = root.split(' | ')[1]
             self._second_loop(root, self._AST, filepath)
@@ -95,13 +99,19 @@ class ASTCodebaseParser(ASTFileParser):
             parent.add_edge(edge_to, edge_from)
 
     def _second_loop(self, node_id: str, parent: G, file: str) -> None:
-        # copy all dictionaries for scoping
-        # f, i, fd, a, c = self._copy_for_scope()
-        # self._function_calls = f
-        # self._imports = i
-        # self._function_definitions = fd
-        # self._assignments = a
-        # self._classes = c
+        
+
+        ### REDO VARIABLE TRACKING ###
+        # handle function definitions
+        if parent.get_vertex(node_id).type == 'function_definition' or parent.get_vertex(node_id).type == 'class_definition':
+            # get function name
+            function_name = list(parent.get_vertex(node_id).get_connections())[0].text
+            # add function definition to dict
+            if self._filepath not in self._function_definitions:
+                self._function_definitions[self._filepath] = {function_name: node_id}
+            else:
+                self._function_definitions[self._filepath][function_name] = node_id
+        ### END REDO VARIABLE TRACKING ###
 
         # add assignments
         if parent.get_vertex(node_id).type == 'assignment':
@@ -233,10 +243,22 @@ class ASTCodebaseParser(ASTFileParser):
                     # add edge
                     self._edges_to_add.append((node_id, self._assignments[file][txt][1]))
                     # self._edges_to_add.append((self._assignments[file][txt][1], node_id))
+        # copy all dictionaries for scoping
+        if parent.get_vertex(node_id).type in ['function_definition', 'class_definition'] or 'comprehension' in parent.get_vertex(node_id).type or 'lambda' == parent.get_vertex(node_id).type:
+            _, fd, a, c = self._copy_for_scope()
+            print(parent.get_vertex(node_id).id)
+            print('before:', a)
 
         # recurse over neighbors/children
         for neighbor in parent.get_vertex(node_id).get_connections():
             self._second_loop(neighbor.id, parent, file)
+
+        if parent.get_vertex(node_id).type in ['function_definition', 'class_definition'] or 'comprehension' in parent.get_vertex(node_id).type or 'lambda' == parent.get_vertex(node_id).type:
+            self._function_definitions = fd
+            self._assignments = a
+            self._classes = c
+            print('after:', a)
+        
 
     def _class_attribute(self, file: str, class_name: str, parent: G, class_root_node_id: str) -> None:
         # record all class attributes
