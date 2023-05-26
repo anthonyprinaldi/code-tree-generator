@@ -14,3 +14,7 @@ y = func2(2)
 print(x)
 
 print(y)
+
+[a for a in range(10)]
+
+print((lambda x: x ** 2)(1))
