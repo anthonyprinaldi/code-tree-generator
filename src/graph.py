@@ -95,6 +95,13 @@ class Graph:
     
     def get_vertices(self) -> List[str]:
         return list(self.vert_dict.keys())
+    
+    def get_parent(self, id: str) -> Node:
+        for node in self:
+            for neighbor in node.get_connections():
+                if neighbor.id == id:
+                    return node
+        return None
 
 if __name__ == "__main__":
     print(Node('a', 'b', 'c'))
