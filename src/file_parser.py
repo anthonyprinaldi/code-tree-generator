@@ -73,6 +73,21 @@ class ASTFileParser():
         # value: dict of (class name, dict of (attribute name, node name))
         self._classes : Dict[str, Dict[str, Dict[str, str]]] = {}
 
+        # track edges for imports from files that have not been read yet
+        # value: (node_from_id, file_imported_from, function_imported)
+        self._delayed_assignment_edges_to_add : List[Tuple[str, str, str]] = []
+
+        self._delayed_call_edges_to_add : List[Tuple[str, str, str]] = []
+    
+    def _copy_for_scope(self) -> List[Dict]:
+        return [
+            self._function_calls.copy(),
+            self._imports.copy(),
+            self._function_definitions.copy(),
+            self._assignments.copy(),
+            self._classes.copy(),
+        ]
+
     @property
     def AST(self) -> dict[str, Any]:
         return self._AST
@@ -105,6 +120,11 @@ class ASTFileParser():
             
             name = node.type if not text else node.type + ' | ' + text
 
+            # condense dotted attributes
+            if node.type == 'attribute':                
+                text = node.text.decode('utf-8')
+                name = 'identifier | ' + text
+
             # add file name to root node
             if node.type == 'module':
                 name = node.type + ' | ' + self._filepath
@@ -119,6 +139,13 @@ class ASTFileParser():
             n_ = N(name, node.start_point, node.end_point, type = node.type)
             if text:
                 n_.text = text
+
+            if node.type == 'attribute':
+                n_.type = 'identifier'
+                id = parent.add_vertex(n_)
+                return id
+
+            # add the node to the graph
             id = parent.add_vertex(n_)
 
             # track variable name for identifier nodes
@@ -169,7 +196,7 @@ class ASTFileParser():
         self._call_to_import(function_name, parent, id)
     
     def _call_to_import(self, function_call: str, parent: G, id: str) -> None:
-        if function_call in self._imports[self._filepath]:
+        if self._filepath in self._imports and function_call in self._imports[self._filepath]:
             # parent.add_edge(id, self._imports[self._filepath][function_call])
             self._edges_to_add.append((id, self._imports[self._filepath][function_call][0]))
             return
@@ -192,7 +219,8 @@ class ASTFileParser():
             if node.parent.type == 'import_from_statement':
                 import_path = node.parent.children[1].text.decode("utf-8")
             elif node.parent.type == 'import_statement':
-                import_path = node.text.decode("utf-8")
+                # import_path = node.text.decode("utf-8")
+                import_path = ""
             import_name = [(node.text.decode("utf-8"), id, import_path)]
             
         # add import to dict
