@@ -1,4 +1,5 @@
 import argparse
+import copy
 import sys
 from typing import *
 
@@ -81,11 +82,10 @@ class ASTFileParser():
     
     def _copy_for_scope(self) -> List[Dict]:
         return [
-            self._function_calls.copy(),
-            self._imports.copy(),
-            self._function_definitions.copy(),
-            self._assignments.copy(),
-            self._classes.copy(),
+            copy.deepcopy(self._function_calls),
+            copy.deepcopy(self._function_definitions),
+            copy.deepcopy(self._assignments),
+            copy.deepcopy(self._classes),
         ]
 
     @property
