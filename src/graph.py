@@ -7,7 +7,8 @@ class Node:
                  end: str,
                  text: Optional[str] = None,
                  type: Optional[str] = None,
-                 var_name: Optional[str] = None) -> None:
+                 var_name: Optional[str] = None,
+                 parent: Optional[Union['Node', None]] = None) -> None:
         self._id = id
         self._start = start
         self._end = end
@@ -15,6 +16,7 @@ class Node:
         self._type = type
         self._var_name = var_name
         self._adjacent : Dict[Node, int] = {}
+        self._parent = parent
 
     @property
     def id(self) -> str:
@@ -47,6 +49,16 @@ class Node:
     @var_name.setter
     def var_name(self, value: str) -> None:
         self._var_name = value
+    
+    @property
+    def parent(self) -> Union['Node', None]:
+        return self._parent
+
+    @parent.setter
+    def parent(self, value: Union['Node', None]) -> None:
+        if value is not None and not isinstance(value, Node):
+            raise Exception("parent must be a Node or None for root nodes.")
+        self._parent = value
 
     def __str__(self) -> str:
         return str(self.id) + ' adjacent: ' + str([x.id for x in self._adjacent])
@@ -59,6 +71,13 @@ class Node:
 
     def get_weight(self, neighbor: "Node") -> float:
         return self._adjacent[neighbor]
+    
+    def get_descendants(self) -> List["Node"]:
+        descendants : List["Node"] = []
+        for neighbor in self.get_connections():
+            descendants.append(neighbor)
+            descendants.extend(neighbor.get_descendants())
+        return descendants
 
 class Graph:
     def __init__(self) -> None:
@@ -74,8 +93,13 @@ class Graph:
             '\n----------'
 
     def add_vertex(self, node: Node) -> Node:
+        # check that if there is a parent it is in the graph
+        if node.parent:
+            if node.parent.id not in self.vert_dict:
+                raise Exception(f"Parent {node.parent.id} not in graph.")
         self.num_vertices = self.num_vertices + 1
         self.vert_dict[node.id] = node
+
         return node.id
 
     def get_vertex(self, id: str) -> Node:
@@ -97,12 +121,14 @@ class Graph:
         return list(self.vert_dict.keys())
     
     def get_parent(self, id: str) -> Node:
-        for node in self:
-            for neighbor in node.get_connections():
-                if neighbor.id == id:
-                    return node
-        return None
+        return self.vert_dict[id].parent
 
 if __name__ == "__main__":
     print(Node('a', 'b', 'c'))
     print(Node('a', 'b', 'c').id)
+    n = Node('a', 'b', 'c')
+    n1 = Node('a', 'b', 'd', parent=n)
+    g = Graph()
+    g.add_vertex(n)
+    g.add_vertex(n1)
+    print(g)
