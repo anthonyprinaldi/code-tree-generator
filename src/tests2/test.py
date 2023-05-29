@@ -18,3 +18,6 @@ print(y)
 [a for a in range(10)]
 
 print((lambda x: x ** 2)(1))
+
+x = {}
+x[1][2] = 4
