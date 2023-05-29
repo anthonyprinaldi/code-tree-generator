@@ -163,3 +163,6 @@ cython_debug/
 *.dot
 *.gv
 *.csv
+
+# ignore python profiling files
+*.profile
