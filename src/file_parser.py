@@ -4,7 +4,6 @@ import sys
 from typing import *
 
 from tree_sitter import Language, Node, Parser, Tree, TreeCursor
-from graphviz import Digraph
 import networkx as nx
 import numpy as np
 import pandas as pd
@@ -108,8 +107,7 @@ class ASTFileParser():
     
     def parse(self) -> str:
     
-        def _parse_node(node: Node, parent: G) -> str:
-            
+        def _parse_node(node: Node, parent: G, last_node: Union[Node, None]) -> str:
 
             # add text if node is terminal
             text = None
@@ -120,10 +118,11 @@ class ASTFileParser():
             
             name = node.type if not text else node.type + ' | ' + text
 
+            # TODO: does this make this better or worse?
             # condense dotted attributes
-            if node.type == 'attribute':                
-                text = node.text.decode('utf-8')
-                name = 'identifier | ' + text
+            # if node.type == 'attribute':                
+            #     text = node.text.decode('utf-8')
+            #     name = 'identifier | ' + text
 
             # add file name to root node
             if node.type == 'module':
@@ -136,14 +135,14 @@ class ASTFileParser():
                     self._counts[name] += 1
                     name = name + '_' + str(self._counts[name])
             
-            n_ = N(name, node.start_point, node.end_point, type = node.type)
+            n_ = N(name, node.start_point, node.end_point, type = node.type, parent = last_node)
             if text:
                 n_.text = text
 
-            if node.type == 'attribute':
-                n_.type = 'identifier'
-                id = parent.add_vertex(n_)
-                return id
+            # if node.type == 'attribute':
+            #     n_.type = 'identifier'
+            #     id = parent.add_vertex(n_)
+            #     return id
 
             # add the node to the graph
             id = parent.add_vertex(n_)
@@ -169,12 +168,12 @@ class ASTFileParser():
                 # only use named nodes
                 if not child.is_named:
                     continue
-                to_id_ = _parse_node(child, parent)
+                to_id_ = _parse_node(child, parent, node)
                 parent.add_edge(n_.id, to_id_)
             
             return id
     
-        root_id = _parse_node(self._root, self._AST)
+        root_id = _parse_node(self._root, self._AST, last_node = None)
 
         # check if this is a file or dir parser
         if type(self) == ASTFileParser:
@@ -192,7 +191,6 @@ class ASTFileParser():
             self._function_calls[self._filepath][function_name] = id
 
         # add edge from the call to the import statment if it exists
-        # TODO: fix this for long series of calls
         self._call_to_import(function_name, parent, id)
     
     def _call_to_import(self, function_call: str, parent: G, id: str) -> None:
@@ -202,6 +200,7 @@ class ASTFileParser():
             return
         if '.' in function_call:
             # function_name = function_name if len(function_name.split('.')) <= 1 else function_name.split('.')[0]
+            # TODO: fix this to work with attributes
             function_call = function_call[:function_call.rfind('.')]
             self._call_to_import(function_call, parent, id)
         

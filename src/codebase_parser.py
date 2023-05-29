@@ -57,20 +57,27 @@ class ASTCodebaseParser(ASTFileParser):
     
     def parse_dir(self) -> None:
         roots = []
+        i = 0
         for file in self._relative_files:
+            print(f'done {i}')
             self._filepath = file
             tree = self._get_syntax_tree(file)
             self._root = tree.root_node
             root_id = self.parse()
             roots.append(root_id)
+            i += 1
+        # TODO: get rid of this reassignment
         # clear assignments, definition and classes
         self._function_definitions = {}
         self._assignments = {}
         self._classes = {}
         # second loop
+        i = 0
         for root in roots:
+            print(f'Second {i}')
             filepath = root.split(' | ')[1]
             self._second_loop(root, self._AST, filepath)
+            i+=1
         self._add_edges(self._AST)
         self._add_delayed_assignment_edges(self._AST)
         self._add_delayed_call_edges(self._AST)
@@ -92,14 +99,13 @@ class ASTCodebaseParser(ASTFileParser):
     def _add_delayed_call_edges(self, parent: G) -> None:
         # connect calls to their definition
         for edge_from, edge_to_file, function_name in self._delayed_call_edges_to_add:
-            if edge_to_file not in self._assignments:
+            if edge_to_file not in self._function_definitions:
                 continue
             edge_to = self._function_definitions[edge_to_file][function_name]
             parent.add_edge(edge_from, edge_to)
             parent.add_edge(edge_to, edge_from)
 
     def _second_loop(self, node_id: str, parent: G, file: str) -> None:
-        
 
         ### REDO VARIABLE TRACKING ###
         # handle function definitions
@@ -115,7 +121,7 @@ class ASTCodebaseParser(ASTFileParser):
 
         # add assignments
         if parent.get_vertex(node_id).type == 'assignment':
-            identifier_node = [n for n in parent.get_vertex(node_id).get_connections() if n.type == 'identifier'][0]
+            identifier_node = [n for n in parent.get_vertex(node_id).get_descendants() if n.type == 'identifier'][0]
             variable_node = list(parent.get_vertex(node_id).get_connections())[1]
             type_ = variable_node.type
             if variable_node.type == 'call':
@@ -129,15 +135,14 @@ class ASTCodebaseParser(ASTFileParser):
         if parent.get_vertex(node_id).type == 'class_definition':
             # add a dictionary entry for the class name
             class_name = list(parent.get_vertex(node_id).get_connections())[0].text
-            self._classes[file] = {class_name: {}}
+            if file not in self._classes:
+                self._classes[file] = {class_name: {}}
+            else:
+                self._classes[file][class_name] = {}
 
             # traverse the rest of the class definition and add all attributes
             self._class_attribute(file, class_name, parent, node_id)
 
-        # handle each function call vertex
-        if parent.get_vertex(node_id).type == 'call':
-            self._call_to_definition(parent.get_vertex(node_id), parent, file)
-        
         # handle other imports (constants) from other files
         if file in self._imports:
             if parent.get_vertex(node_id).type == 'identifier' and not (parent.get_parent(node_id).type == 'aliased_import' or parent.get_parent(node_id).type == 'dotted_name'):
@@ -215,8 +220,6 @@ class ASTCodebaseParser(ASTFileParser):
                             self._edges_to_add.append((self._function_definitions[imported_from][func_new], node_id))
                     else:
                         self._delayed_call_edges_to_add.append((node_id, imported_from, func_new))
-                
-
         
         # check if the call is an class attribute and find its definition
         if parent.get_parent(node_id) and parent.get_parent(node_id).type == 'call':
@@ -246,8 +249,6 @@ class ASTCodebaseParser(ASTFileParser):
         # copy all dictionaries for scoping
         if parent.get_vertex(node_id).type in ['function_definition', 'class_definition'] or 'comprehension' in parent.get_vertex(node_id).type or 'lambda' == parent.get_vertex(node_id).type:
             _, fd, a, c = self._copy_for_scope()
-            print(parent.get_vertex(node_id).id)
-            print('before:', a)
 
         # recurse over neighbors/children
         for neighbor in parent.get_vertex(node_id).get_connections():
@@ -257,8 +258,6 @@ class ASTCodebaseParser(ASTFileParser):
             self._function_definitions = fd
             self._assignments = a
             self._classes = c
-            print('after:', a)
-        
 
     def _class_attribute(self, file: str, class_name: str, parent: G, class_root_node_id: str) -> None:
         # record all class attributes
@@ -270,35 +269,6 @@ class ASTCodebaseParser(ASTFileParser):
 
             # traverse the rest of the function definition and add all attributes
             self._class_attribute(file, class_name, parent, child.id)
-
-
-    def _call_to_definition(self, call_node: N, parent: G, file: str) -> None:
-        # get the full function name for a specific call node
-        function_name = [func for (func, id) in self._function_calls[file].items() if id == call_node.id]
-        if not function_name:
-            return
-        function_name = function_name[0]
-        
-        # check if the call is an import and find which file its imported from
-        # TODO:
-
-        
-        # function_name = list(parent.get_vertex(call_node.id).get_connections())[0]
-        # print(function_name, function_name.text)
-        # if call_node... in self._imports[file]:
-        
-        # check if the call function is in the list of saved functions
-        # for f in self._function_definitions:
-        #     for func_name, func_node_id in self._function_definitions[f].items():
-        #         if func_node_id == call_node_id:
-        #             # add edge
-        #             parent.add_edge(call_node_id, func_node_id)
-        #             parent.add_edge(func_node_id, call_node_id)
-        #             return
-        #         if '.' in func_name:
-        #             path = func_name[:func_name.rfind('.')]
-        #             func_name = func_name[func_name.rfind('.')+1:]
-        #             self._call_to_definition(call_node_id, parent, file)
                     
 def main():
     arg_parser = argparse.ArgumentParser()
@@ -309,7 +279,7 @@ def main():
     ast.parse_dir()
     ast.convert_to_graphviz()
 
-    # ast.view_k_neighbors("module | ../pygamelib/pygamelib/functions.py_0", 2)
+    # ast.view_k_neighbors("module | ../pygamelib/pygamelib/functions.py", 4)
 
     # import ast
     # print(ast.dump(ast.parse(file), indent = 5))
