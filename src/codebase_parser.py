@@ -66,7 +66,6 @@ class ASTCodebaseParser(ASTFileParser):
             root_id = self.parse()
             roots.append(root_id)
             # i += 1
-        # TODO: get rid of this reassignment
         # clear assignments, definition and classes
         self._function_definitions = {}
         self._assignments = {}
@@ -152,8 +151,10 @@ class ASTCodebaseParser(ASTFileParser):
                 possible_imports = list(self._imports[file].keys())
                 import_ids = [i for _, (i, _) in self._imports[file].items()]
                 paths = [p for _, (_, p) in self._imports[file].items()]
-                                        
-                txt = current_vertex.text
+                
+                # if this is an attribute call, get the parent text instead
+                txt = parent.get_parent(node_id).text if parent.get_parent(node_id).type == 'attribute' else current_vertex.text
+
                 if any([re.match(r'(^' + s + r'\.|^' + s + r'$)', txt) for s in possible_imports]):
                     func, import_id, path = [
                         (f, i, p if i.startswith('aliased_import') else p + '.' + f if p else f) for f, i, p in zip(possible_imports, import_ids, paths)
@@ -184,7 +185,7 @@ class ASTCodebaseParser(ASTFileParser):
                             self._delayed_assignment_edges_to_add.append((node_id, imported_from, func_new))
         ### end handle other imports (constants) from other files ###
 
-        ### check if function is defined in the current file ###
+        ### check if function is defined in the current file ### TODO
         if file in self._function_definitions and parent_vertex and parent_vertex.type == 'call':
             func = current_vertex.text
             if func in self._function_definitions[file]:
@@ -193,7 +194,7 @@ class ASTCodebaseParser(ASTFileParser):
                 self._edges_to_add.append((self._function_definitions[file][func], node_id))
         ### end check if function is defined in the current file ###
         
-        ### check if the function is part of an import in the current file ###
+        ### check if the function is part of an import in the current file ### TODO
         if file in self._imports and parent_vertex and parent_vertex.type == 'call':
             possible_imports = list(self._imports[file].keys())
             import_ids = [i for _, (i, _) in self._imports[file].items()]
@@ -226,7 +227,7 @@ class ASTCodebaseParser(ASTFileParser):
                         self._delayed_call_edges_to_add.append((node_id, imported_from, func_new))
         ### end check if the function is part of an import in the current file ###
         
-        ### check if the call is an class attribute and find its definition ###
+        ### check if the call is an class attribute and find its definition ### TODO
         if parent_vertex and parent_vertex.type == 'call':
             txt = current_vertex.text
             if '.' in txt:
