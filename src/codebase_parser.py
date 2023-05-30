@@ -98,7 +98,7 @@ class ASTCodebaseParser(ASTFileParser):
     def _add_delayed_call_edges(self, parent: G) -> None:
         # connect calls to their definition
         for edge_from, edge_to_file, function_name in self._delayed_call_edges_to_add:
-            if edge_to_file not in self._function_definitions:
+            if edge_to_file not in self._function_definitions or function_name not in self._function_definitions[edge_to_file]:
                 continue
             edge_to = self._function_definitions[edge_to_file][function_name]
             parent.add_edge(edge_from, edge_to)
@@ -113,10 +113,10 @@ class ASTCodebaseParser(ASTFileParser):
             # get function name
             function_name = list(current_vertex.get_connections())[0].text
             # add function definition to dict
-            if self._filepath not in self._function_definitions:
-                self._function_definitions[self._filepath] = {function_name: node_id}
+            if file not in self._function_definitions:
+                self._function_definitions[file] = {function_name: node_id}
             else:
-                self._function_definitions[self._filepath][function_name] = node_id
+                self._function_definitions[file][function_name] = node_id
         ### END REDO VARIABLE TRACKING ###
 
         ### add assignments ###
