@@ -107,8 +107,7 @@ class ASTFileParser():
     
     def parse(self) -> str:
     
-        def _parse_node(node: Node, parent: G, last_node: Union[Node, None]) -> str:
-
+        def _parse_node(node: Node, parent: G, last_node: Union[N, None]) -> str:
             # add text if node is terminal
             text = None
             if node.is_named and len(node.children) == 0:
@@ -168,7 +167,7 @@ class ASTFileParser():
                 # only use named nodes
                 if not child.is_named:
                     continue
-                to_id_ = _parse_node(child, parent, node)
+                to_id_ = _parse_node(child, parent, last_node = n_)
                 parent.add_edge(n_.id, to_id_)
             
             return id
