@@ -57,27 +57,27 @@ class ASTCodebaseParser(ASTFileParser):
     
     def parse_dir(self) -> None:
         roots = []
-        i = 0
+        # i = 0
         for file in self._relative_files:
-            print(f'done {i}')
+            # print(f'done {i}')
             self._filepath = file
             tree = self._get_syntax_tree(file)
             self._root = tree.root_node
             root_id = self.parse()
             roots.append(root_id)
-            i += 1
+            # i += 1
         # TODO: get rid of this reassignment
         # clear assignments, definition and classes
         self._function_definitions = {}
         self._assignments = {}
         self._classes = {}
         # second loop
-        i = 0
+        # i = 0
         for root in roots:
-            print(f'Second {i}')
+            # print(f'Second {i}')
             filepath = root.split(' | ')[1]
             self._second_loop(root, self._AST, filepath)
-            i+=1
+            # i+=1
         self._add_edges(self._AST)
         self._add_delayed_assignment_edges(self._AST)
         self._add_delayed_call_edges(self._AST)
@@ -107,6 +107,7 @@ class ASTCodebaseParser(ASTFileParser):
 
     def _second_loop(self, node_id: str, parent: G, file: str) -> None:
         current_vertex = parent.get_vertex(node_id)
+        parent_vertex = parent.get_parent(node_id)
         ### REDO VARIABLE TRACKING ###
         # handle function definitions
         if current_vertex.type == 'function_definition' or current_vertex.type == 'class_definition':
@@ -145,7 +146,7 @@ class ASTCodebaseParser(ASTFileParser):
 
         # handle other imports (constants) from other files
         if file in self._imports:
-            if current_vertex.type == 'identifier' and not (current_vertex.type == 'aliased_import' or current_vertex.type == 'dotted_name'):
+            if current_vertex.type == 'identifier' and not (parent_vertex.type == 'aliased_import' or parent_vertex.type == 'dotted_name'):
                 # TODO: cache to save time
                 possible_imports = list(self._imports[file].keys())
                 import_ids = [i for _, (i, _) in self._imports[file].items()]
@@ -182,7 +183,7 @@ class ASTCodebaseParser(ASTFileParser):
                             self._delayed_assignment_edges_to_add.append((node_id, imported_from, func_new))
                
         # check if the function is defined in the current file
-        if file in self._function_definitions and current_vertex and current_vertex.type == 'call':
+        if file in self._function_definitions and parent_vertex and parent_vertex.type == 'call':
             func = current_vertex.text
             if func in self._function_definitions[file]:
                 # add edge
@@ -190,7 +191,7 @@ class ASTCodebaseParser(ASTFileParser):
                 self._edges_to_add.append((self._function_definitions[file][func], node_id))
         
         # check if the function is part of an import in the current file
-        if file in self._imports and current_vertex and current_vertex.type == 'call':
+        if file in self._imports and parent_vertex and parent_vertex.type == 'call':
             possible_imports = list(self._imports[file].keys())
             import_ids = [i for _, (i, _) in self._imports[file].items()]
             paths = [p for _, (_, p) in self._imports[file].items()]
@@ -222,7 +223,7 @@ class ASTCodebaseParser(ASTFileParser):
                         self._delayed_call_edges_to_add.append((node_id, imported_from, func_new))
         
         # check if the call is an class attribute and find its definition
-        if current_vertex and current_vertex.type == 'call':
+        if parent_vertex and parent_vertex.type == 'call':
             txt = current_vertex.text
             if '.' in txt:
                 object_ = txt[:txt.find('.')]
@@ -240,7 +241,7 @@ class ASTCodebaseParser(ASTFileParser):
 
         # connect identifiers to their assignments
         txt = current_vertex.text
-        if current_vertex and current_vertex.type != 'assignment':
+        if parent_vertex and parent_vertex.type != 'assignment':
             if file in self._assignments:
                 if txt in self._assignments[file]:
                     # add edge
