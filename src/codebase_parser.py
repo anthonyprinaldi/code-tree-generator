@@ -106,12 +106,12 @@ class ASTCodebaseParser(ASTFileParser):
             parent.add_edge(edge_to, edge_from)
 
     def _second_loop(self, node_id: str, parent: G, file: str) -> None:
-
+        current_vertex = parent.get_vertex(node_id)
         ### REDO VARIABLE TRACKING ###
         # handle function definitions
-        if parent.get_vertex(node_id).type == 'function_definition' or parent.get_vertex(node_id).type == 'class_definition':
+        if current_vertex.type == 'function_definition' or current_vertex.type == 'class_definition':
             # get function name
-            function_name = list(parent.get_vertex(node_id).get_connections())[0].text
+            function_name = list(current_vertex.get_connections())[0].text
             # add function definition to dict
             if self._filepath not in self._function_definitions:
                 self._function_definitions[self._filepath] = {function_name: node_id}
@@ -120,9 +120,9 @@ class ASTCodebaseParser(ASTFileParser):
         ### END REDO VARIABLE TRACKING ###
 
         # add assignments
-        if parent.get_vertex(node_id).type == 'assignment':
-            identifier_node = [n for n in parent.get_vertex(node_id).get_descendants() if n.type == 'identifier'][0]
-            variable_node = list(parent.get_vertex(node_id).get_connections())[1]
+        if current_vertex.type == 'assignment':
+            identifier_node = [n for n in current_vertex.get_descendants() if n.type == 'identifier'][0]
+            variable_node = list(current_vertex.get_connections())[1]
             type_ = variable_node.type
             if variable_node.type == 'call':
                 variable_node = list(variable_node.get_connections())[0]
@@ -132,9 +132,9 @@ class ASTCodebaseParser(ASTFileParser):
             self._assignments[file][identifier_node.var_name] = (type_, identifier_node.id)
 
         # add class methods
-        if parent.get_vertex(node_id).type == 'class_definition':
+        if current_vertex.type == 'class_definition':
             # add a dictionary entry for the class name
-            class_name = list(parent.get_vertex(node_id).get_connections())[0].text
+            class_name = list(current_vertex.get_connections())[0].text
             if file not in self._classes:
                 self._classes[file] = {class_name: {}}
             else:
@@ -145,13 +145,13 @@ class ASTCodebaseParser(ASTFileParser):
 
         # handle other imports (constants) from other files
         if file in self._imports:
-            if parent.get_vertex(node_id).type == 'identifier' and not (parent.get_parent(node_id).type == 'aliased_import' or parent.get_parent(node_id).type == 'dotted_name'):
+            if current_vertex.type == 'identifier' and not (current_vertex.type == 'aliased_import' or current_vertex.type == 'dotted_name'):
                 # TODO: cache to save time
                 possible_imports = list(self._imports[file].keys())
                 import_ids = [i for _, (i, _) in self._imports[file].items()]
                 paths = [p for _, (_, p) in self._imports[file].items()]
                                         
-                txt = parent.get_vertex(node_id).text
+                txt = current_vertex.text
                 if any([re.match(r'(^' + s + r'\.|^' + s + r'$)', txt) for s in possible_imports]):
                     func, import_id, path = [
                         (f, i, p if i.startswith('aliased_import') else p + '.' + f if p else f) for f, i, p in zip(possible_imports, import_ids, paths)
@@ -182,20 +182,20 @@ class ASTCodebaseParser(ASTFileParser):
                             self._delayed_assignment_edges_to_add.append((node_id, imported_from, func_new))
                
         # check if the function is defined in the current file
-        if file in self._function_definitions and parent.get_parent(node_id) and parent.get_parent(node_id).type == 'call':
-            func = parent.get_vertex(node_id).text
+        if file in self._function_definitions and current_vertex and current_vertex.type == 'call':
+            func = current_vertex.text
             if func in self._function_definitions[file]:
                 # add edge
                 self._edges_to_add.append((node_id, self._function_definitions[file][func]))
                 self._edges_to_add.append((self._function_definitions[file][func], node_id))
         
         # check if the function is part of an import in the current file
-        if file in self._imports and parent.get_parent(node_id) and parent.get_parent(node_id).type == 'call':
+        if file in self._imports and current_vertex and current_vertex.type == 'call':
             possible_imports = list(self._imports[file].keys())
             import_ids = [i for _, (i, _) in self._imports[file].items()]
             paths = [p for _, (_, p) in self._imports[file].items()]
                                     
-            txt = parent.get_vertex(node_id).text
+            txt = current_vertex.text
             if any([re.match(r'(^' + s + r'\.|^' + s + r'$)', txt) for s in possible_imports]):
                 func, import_id, path = [
                     (f, i, p if i.startswith('aliased_import') else p + '.' + f if p else f) for f, i, p in zip(possible_imports, import_ids, paths)
@@ -222,8 +222,8 @@ class ASTCodebaseParser(ASTFileParser):
                         self._delayed_call_edges_to_add.append((node_id, imported_from, func_new))
         
         # check if the call is an class attribute and find its definition
-        if parent.get_parent(node_id) and parent.get_parent(node_id).type == 'call':
-            txt = parent.get_vertex(node_id).text
+        if current_vertex and current_vertex.type == 'call':
+            txt = current_vertex.text
             if '.' in txt:
                 object_ = txt[:txt.find('.')]
                 # check if object has a type
@@ -239,22 +239,22 @@ class ASTCodebaseParser(ASTFileParser):
                                     self._edges_to_add.append((self._classes[file][class_][txt[txt.find('.')+1:]], node_id))             
 
         # connect identifiers to their assignments
-        txt = parent.get_vertex(node_id).text
-        if parent.get_parent(node_id) and parent.get_parent(node_id).type != 'assignment':
+        txt = current_vertex.text
+        if current_vertex and current_vertex.type != 'assignment':
             if file in self._assignments:
                 if txt in self._assignments[file]:
                     # add edge
                     self._edges_to_add.append((node_id, self._assignments[file][txt][1]))
                     # self._edges_to_add.append((self._assignments[file][txt][1], node_id))
         # copy all dictionaries for scoping
-        if parent.get_vertex(node_id).type in ['function_definition', 'class_definition'] or 'comprehension' in parent.get_vertex(node_id).type or 'lambda' == parent.get_vertex(node_id).type:
+        if current_vertex.type in ['function_definition', 'class_definition'] or 'comprehension' in current_vertex.type or 'lambda' == current_vertex.type:
             _, fd, a, c = self._copy_for_scope()
 
         # recurse over neighbors/children
-        for neighbor in parent.get_vertex(node_id).get_connections():
+        for neighbor in current_vertex.get_connections():
             self._second_loop(neighbor.id, parent, file)
 
-        if parent.get_vertex(node_id).type in ['function_definition', 'class_definition'] or 'comprehension' in parent.get_vertex(node_id).type or 'lambda' == parent.get_vertex(node_id).type:
+        if current_vertex.type in ['function_definition', 'class_definition'] or 'comprehension' in current_vertex.type or 'lambda' == current_vertex.type:
             self._function_definitions = fd
             self._assignments = a
             self._classes = c
