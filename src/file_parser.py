@@ -114,6 +114,9 @@ class ASTFileParser():
                 text = node.text.decode("utf-8")
             if node.type == 'binary_operator':
                 text = node.children[1].text.decode("utf-8")
+            # add text to attribute nodes
+            if node.type == 'attribute':
+                text = node.text.decode("utf-8")            
             
             name = node.type if not text else node.type + ' | ' + text
 
