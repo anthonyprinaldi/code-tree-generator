@@ -123,6 +123,20 @@ class Graph:
     def get_parent(self, id: str) -> Node:
         return self.vert_dict[id].parent
 
+    def get_highest_attribute(self, id: str) -> Node:
+        # find the highest parent of the current node that has a type of attribute
+        node: Node = self.vert_dict[id]
+        
+        if node.parent:
+            while node.parent:
+                if node.parent.type == 'attribute':
+                    node = node.parent
+                else:
+                    break
+            return node
+        else:
+            return None
+
 if __name__ == "__main__":
     print(Node('a', 'b', 'c'))
     print(Node('a', 'b', 'c').id)
