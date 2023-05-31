@@ -289,7 +289,7 @@ class ASTCodebaseParser(ASTFileParser):
 
                             if object_import in possible_imports:
                                 # find which file we are importing the constant from
-                                imported_from = possible_imports.index(object_import) if paths[possible_imports.index(object_import)] else object_import
+                                imported_from = paths[possible_imports.index(object_import)] if paths[possible_imports.index(object_import)] else object_import
                                 imported_from = [f for f in self._relative_files if imported_from in f]
                                 if imported_from:
                                     imported_from = imported_from[0]
