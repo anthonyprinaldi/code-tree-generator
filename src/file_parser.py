@@ -65,7 +65,7 @@ class ASTFileParser():
 
         # track assignments
         # key: file name
-        # value: dict of (variable name, variable type, node name)
+        # value: dict of {variable name: (variable type, node name)}
         self._assignments : Dict[str, Dict[str, Tuple[str, str]]] = {}
 
         # track classes and their attributes
@@ -78,6 +78,9 @@ class ASTFileParser():
         self._delayed_assignment_edges_to_add : List[Tuple[str, str, str]] = []
 
         self._delayed_call_edges_to_add : List[Tuple[str, str, str]] = []
+        
+        # (node_from_id, imported_file, class_type, attribute_name)
+        self._delayed_class_attributes_to_add : List[Tuple[str, str, str, str]] = []
     
     def _copy_for_scope(self) -> List[Dict]:
         return [
@@ -114,6 +117,9 @@ class ASTFileParser():
                 text = node.text.decode("utf-8")
             if node.type == 'binary_operator':
                 text = node.children[1].text.decode("utf-8")
+            # add text to attribute nodes
+            if node.type == 'attribute':
+                text = node.text.decode("utf-8")            
             
             name = node.type if not text else node.type + ' | ' + text
 

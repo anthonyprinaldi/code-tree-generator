@@ -1,10 +1,13 @@
 from module1.temp import ONE
 import module1.temp
+from examine2 import test_func
+
+test_func(1, 2, 3)
+
+module1.temp.TWO.get(5)
 
 print(module1.temp.ONE)
 print(ONE)
-
-print("Hello world")
 
 num1 = 1.5
 num2 = 6.3
@@ -21,9 +24,6 @@ if sum > 10:
 else:
     num = 4
 
-# To take the input from the user
-#num = float(input('Enter a number: '))
-
 num_sqrt = num ** 0.5
 print('The square root of %0.3f is %0.3f'%(num ,num_sqrt))
 
@@ -38,5 +38,3 @@ class TestClass(object):
 obj = TestClass(10)
 print(obj)
 obj.method1()
-
-# a, b = 1, 2
