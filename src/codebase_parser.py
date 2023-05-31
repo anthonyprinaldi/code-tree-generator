@@ -53,6 +53,7 @@ class ASTCodebaseParser(ASTFileParser):
                     for x in filenames if x.endswith(".py")
                 ]
             )
+        files.sort(key = lambda x: x.count(os.sep), reverse=True)
         return files
     
     def parse_dir(self) -> None:
