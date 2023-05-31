@@ -80,6 +80,7 @@ class ASTCodebaseParser(ASTFileParser):
         self._add_edges(self._AST)
         self._add_delayed_assignment_edges(self._AST)
         self._add_delayed_call_edges(self._AST)
+        self._add_delayed_attribute_edges(self._AST)
 
     def _add_edges(self, parent: G) -> None:
         # connect import edges to their calls
@@ -103,10 +104,26 @@ class ASTCodebaseParser(ASTFileParser):
             edge_to = self._function_definitions[edge_to_file][function_name]
             parent.add_edge(edge_from, edge_to)
             parent.add_edge(edge_to, edge_from)
+    
+    def _add_delayed_attribute_edges(self, parent: G) -> None:
+        # connect calls to their definition
+        for edge_from, edge_to_file, class_name, attribute_name in self._delayed_class_attributes_to_add:
+            if edge_to_file in self._classes:
+                if class_name in self._classes[edge_to_file]:
+                    if attribute_name in self._classes[edge_to_file][class_name]:
+                        edge_to = self._classes[edge_to_file][class_name][attribute_name]
+                        parent.add_edge(edge_from, edge_to)
+                        parent.add_edge(edge_to, edge_from)
+                    # add edge to class definition
+                    else:
+                        class_definition = self._function_definitions[edge_to_file][class_name]
+                        parent.add_edge(edge_from, class_definition)
+                        parent.add_edge(class_definition, edge_from)
 
     def _second_loop(self, node_id: str, parent: G, file: str) -> None:
         current_vertex = parent.get_vertex(node_id)
         parent_vertex = parent.get_parent(node_id)
+
         ### REDO VARIABLE TRACKING ###
         # handle function definitions
         if current_vertex.type == 'function_definition' or current_vertex.type == 'class_definition':
@@ -174,7 +191,6 @@ class ASTCodebaseParser(ASTFileParser):
                     # find which file we are importing the constant from
                     imported_from = [f for f in self._relative_files if path_new.replace('.', '/') in f]
                     if imported_from:
-                        
                         imported_from = imported_from[0]
                         if imported_from in self._assignments:
                             if func_new in self._assignments[imported_from]:
@@ -185,7 +201,7 @@ class ASTCodebaseParser(ASTFileParser):
                             self._delayed_assignment_edges_to_add.append((node_id, imported_from, func_new))
         ### end handle other imports (constants) from other files ###
 
-        ### check if function is defined in the current file ### TODO
+        ### check if function is defined in the current file ###
         if file in self._function_definitions and parent_vertex and parent_vertex.type == 'call':
             func = current_vertex.text
             if func in self._function_definitions[file]:
@@ -194,7 +210,7 @@ class ASTCodebaseParser(ASTFileParser):
                 self._edges_to_add.append((self._function_definitions[file][func], node_id))
         ### end check if function is defined in the current file ###
         
-        ### check if the function is part of an import in the current file ### TODO
+        ### check if the function is part of an import in the current file ###
         if file in self._imports and parent_vertex and parent_vertex.type == 'call':
             possible_imports = list(self._imports[file].keys())
             import_ids = [i for _, (i, _) in self._imports[file].items()]
@@ -228,21 +244,112 @@ class ASTCodebaseParser(ASTFileParser):
         ### end check if the function is part of an import in the current file ###
         
         ### check if the call is an class attribute and find its definition ### TODO
-        if parent_vertex and parent_vertex.type == 'call':
+        # handle already created objects
+        grandparent = parent.get_parent(parent_vertex.id) if parent_vertex else None
+        if parent_vertex and parent_vertex.type == 'attribute' and grandparent and grandparent.type == 'call':
             txt = current_vertex.text
-            if '.' in txt:
-                object_ = txt[:txt.find('.')]
-                # check if object has a type
+            
+            long_attribute = parent_vertex.text
+
+            # check that the attribute matches the end of the parent string
+            if long_attribute.endswith(txt) and txt:
+                attribute_call = txt
+                attribute_prefix = long_attribute[:long_attribute.rfind(attribute_call)-1]
+                
+                # check if the prefix matches an object
                 if file in self._assignments:
-                    if object_ in self._assignments[file]:
-                        class_, object_node_id = self._assignments[file][object_]
-                        # check if object type is defined in the current file
+                    if attribute_prefix in self._assignments[file]:
+                        object_type = self._assignments[file][attribute_prefix][0]
+                        object_node_id = self._assignments[file][attribute_prefix][1]
+
+                        # connect locally if available
                         if file in self._classes:
-                            if class_ in self._classes[file]:
-                                if txt[txt.find('.')+1:] in self._classes[file][class_]:
-                                    # add edge
-                                    self._edges_to_add.append((node_id, self._classes[file][class_][txt[txt.find('.')+1:]]))
-                                    self._edges_to_add.append((self._classes[file][class_][txt[txt.find('.')+1:]], node_id))             
+                            if object_type in self._classes[file]:
+                                # connect call to local attribute definition (if it exists)
+                                if attribute_call in self._classes[file][object_type]:
+                                    self._edges_to_add.append((node_id, self._classes[file][object_type][attribute_call]))
+                                    self._edges_to_add.append((self._classes[file][object_type][attribute_call], node_id))
+                                # connect call to local class definition (if it exists)
+                                elif file in self._function_definitions:
+                                    if object_type in self._function_definitions[file]:
+                                        self._edges_to_add.append((node_id, self._function_definitions[file][object_type]))
+                                        self._edges_to_add.append((self._function_definitions[file][object_type], node_id))
+                                # connect call to local assignment (if it exists)
+                                else:
+                                    self._edges_to_add.append((node_id, object_node_id))
+                                    self._edges_to_add.append((object_node_id, node_id))
+
+                        # connect to other files if necessary
+                        if file in self._imports:
+                            possible_imports = list(self._imports[file].keys())
+                            import_ids = [i for _, (i, _) in self._imports[file].items()]
+                            paths = [p for _, (_, p) in self._imports[file].items()]
+                            type_ = object_type[object_type.rfind('.')+1:]
+                            object_import = object_type[:object_type.rfind('.')]
+
+                            if object_import in possible_imports:
+                                # find which file we are importing the constant from
+                                imported_from = possible_imports.index(object_import) if paths[possible_imports.index(object_import)] else object_import
+                                imported_from = [f for f in self._relative_files if imported_from in f]
+                                if imported_from:
+                                    imported_from = imported_from[0]
+                                    # connect call to imported attribute definition (if it exists)
+                                    if imported_from in self._classes:
+                                        if type_ in self._classes[imported_from]:
+                                            if attribute_call in self._classes[imported_from][type_]:
+                                                self._edges_to_add.append((node_id, self._classes[imported_from][type_][attribute_call]))
+                                                self._edges_to_add.append((self._classes[imported_from][type_][attribute_call], node_id))
+                                            # connect to the class definition
+                                            else:
+                                                self._edges_to_add.append((node_id, self._function_definitions[imported_from][type_]))
+                                                self._edges_to_add.append((self._function_definitions[imported_from][type_], node_id))
+                                    else:
+                                        self._delayed_class_attributes_to_add.append((node_id, imported_from, type_, attribute_call))
+
+
+                # check if the prefix follows an import (for inline calls)
+                # check the prefix to get all the possible import paths it could come from
+                if file in self._imports:
+                    possible_imports = list(self._imports[file].keys())
+                    import_ids = [i for _, (i, _) in self._imports[file].items()]
+                    paths = [p for _, (_, p) in self._imports[file].items()]
+                    txt = attribute_prefix
+                    while '.' in txt:
+                        # first part is import
+                        # second part is path and/or class call
+                        # third part is the attribute
+                        # match the prefix to an import where the 
+                        if any([re.match(r'(^' + s + r'\.|^' + s + r'$)', txt) for s in possible_imports]):
+                            func, import_id, path = [
+                                (f, i, p if i.startswith('aliased_import') else p + '.' + f if p else f) for f, i, p in zip(possible_imports, import_ids, paths)
+                                if txt.startswith(f)
+                            ][0]
+                            # remove import path from the prefix
+                            txt = txt[len(func)+1:]
+                            if txt:
+                                txt = txt[:txt.find('(')] if '(' in txt else txt
+                                # use the path to check if the file contains the class definition
+                                imported_from = [f for f in self._relative_files if path_new.replace('.', '/') in f]
+                                if imported_from:
+                                    imported_from = imported_from[0]
+                                    # connect call to imported attribute definition (if it exists)
+                                    if imported_from in self._classes:
+                                        if txt in self._classes[imported_from]:
+                                            # connect to the class definition
+                                            if attribute_call in self._classes[imported_from][txt]:
+                                                self._edges_to_add.append((node_id, self._classes[imported_from][txt][attribute_call]))
+                                                self._edges_to_add.append((self._classes[imported_from][txt][attribute_call], node_id))
+                                            # connect to the identifier definition
+                                            else:
+                                                self._edges_to_add.append((node_id, self._function_definitions[imported_from][txt]))
+                                                self._edges_to_add.append((self._function_definitions[imported_from][txt], node_id))
+                                    # add to edges to add later
+                                    else:
+                                        self._delayed_class_attributes_to_add.append((node_id, imported_from, txt, attribute_call))
+                            
+                            break
+                        txt = txt[:txt.rfind('.')]
+                           
         ### end check if the call is an class attribute and find its definition ###
 
         ### connect identifiers to their assignments ###
@@ -263,6 +370,7 @@ class ASTCodebaseParser(ASTFileParser):
         for neighbor in current_vertex.get_connections():
             self._second_loop(neighbor.id, parent, file)
 
+        # reset the scoping dicts
         if current_vertex.type in ['function_definition', 'class_definition'] or 'comprehension' in current_vertex.type or 'lambda' == current_vertex.type:
             self._function_definitions = fd
             self._assignments = a
@@ -288,7 +396,7 @@ def main():
     ast.parse_dir()
     ast.convert_to_graphviz()
 
-    # ast.view_k_neighbors("module | ../pygamelib/pygamelib/functions.py", 4)
+    # ast.view_k_neighbors("module | ../Gymnasium/gymnasium/core.py", 6)
 
     # import ast
     # print(ast.dump(ast.parse(file), indent = 5))
