@@ -8,6 +8,7 @@ import numpy.linalg
 
 from matplotlib.pyplot import plot as p
 import numpy.linalg as l
+import examine3 as e3
 
 x = 1
 y = 2
@@ -25,3 +26,6 @@ def sq(a):
     return(a ** 2)
 
 print(sq(y))
+
+examine3.TestClass(0).method1()
+e3.TestClass(1000).method1()

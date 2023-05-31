@@ -1,5 +1,10 @@
 from module1.temp import ONE
 import module1.temp
+from examine2 import test_func
+
+test_func(1, 2, 3)
+
+module1.temp.TWO.get(5)
 
 print(module1.temp.ONE)
 print(ONE)
