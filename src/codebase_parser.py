@@ -389,9 +389,9 @@ class ASTCodebaseParser(ASTFileParser):
                     
 def main():
     arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument("--dir", type=str, required=True, help="Path to directory to parse")
-    arg_parser.add_argument("--nf", type = str, required = True, help = "File to save node features to")
-    arg_parser.add_argument("--adj", type = str, required = True, help = "File to save adjacency matrix t0")
+    arg_parser.add_argument("--dir", metavar = "Directory", type=str, required=True, help="Path to directory to parse")
+    arg_parser.add_argument("--nf", metavar = "Node features", type = str, required = True, help = "File to save node features to")
+    arg_parser.add_argument("--adj", metavar = "Adjacency matrix", type = str, required = True, help = "File to save adjacency matrix t0")
     args = arg_parser.parse_args()
 
     ast = ASTCodebaseParser(args.dir)
