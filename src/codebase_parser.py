@@ -390,11 +390,14 @@ class ASTCodebaseParser(ASTFileParser):
 def main():
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("--dir", type=str, required=True, help="Path to directory to parse")
+    arg_parser.add_argument("--nf", type = str, required = True, help = "File to save node features to")
+    arg_parser.add_argument("--adj", type = str, required = True, help = "File to save adjacency matrix t0")
     args = arg_parser.parse_args()
 
     ast = ASTCodebaseParser(args.dir)
     ast.parse_dir()
-    ast.convert_to_graphviz()
+    ast.to_csv(args.nf, args.adj)
+    # ast.convert_to_graphviz()
 
     # ast.view_k_neighbors("module | ../Gymnasium/gymnasium/core.py", 6)
 

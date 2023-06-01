@@ -318,24 +318,26 @@ class ASTFileParser():
         g.write('tree.gv')
         return g
 
-    def to_csv(self) -> None:
+    def to_csv(self, nf: str, adj: str) -> None:
         if not self._AST:
             raise Exception("AST is empty. Use parse() first.")
-        self._to_csv()
+        self._to_csv(nf, adj)
 
-    def _to_csv(self) -> None:
+    def _to_csv(self, nf: str, adj: str) -> None:
         g : pgv.AGraph = self.convert_to_graphviz()
         g : nx.DiGraph = nx.nx_agraph.from_agraph(g)
 
         nodes = [n for n in g.nodes()]
         feats = [feat['xlabel'] for node, feat in dict(g.nodes(data=True)).items()]
         node_feats = pd.DataFrame({'node': nodes, 'feat': feats})
-        node_feats.to_csv('node_feats.csv', index = False)
+        node_feats.to_csv(nf, index = False)
+        print(f'Saved node features to {nf}')
         del node_feats
         del nodes
         del feats
-        adj = nx.to_numpy_array(g, dtype = np.bool_, weight = None)
-        np.savetxt('adj.csv', adj, delimiter = ',', fmt = '%.0f')
+        adj_np = nx.to_numpy_array(g, dtype = np.bool_, weight = None)
+        np.savetxt(adj, adj_np, delimiter = ',', fmt = '%.0f')
+        print(f'Saved adjacency matrix to {adj}')
 
     def _to_networkx(self) -> nx.DiGraph:
         g : pgv.AGraph = self.convert_to_graphviz()
