@@ -91,11 +91,11 @@ class ASTFileParser():
         ]
 
     @property
-    def AST(self) -> dict[str, Any]:
+    def AST(self) -> Dict[str, Any]:
         return self._AST
 
     @AST.setter
-    def AST(self, value: dict[str, Any]) -> None:
+    def AST(self, value: Dict[str, Any]) -> None:
         raise Exception("AST is read-only. Use parse() instead.")
     
     def __str__(self) -> str:
