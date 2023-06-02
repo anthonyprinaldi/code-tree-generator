@@ -394,8 +394,13 @@ def main():
     arg_parser.add_argument("--nf", metavar = "Node features", type = str, required = True, help = "File to save node features to")
     arg_parser.add_argument("--adj", metavar = "Adjacency matrix", type = str, required = True, help = "File to save adjacency matrix t0")
     arg_parser.add_argument("--dim", metavar = "Dimension", type = int, required = True, help = "Dimension of the node features")
-    arg_parser.add_argument("--save-gv", action="store_true", help = "Flag to save Graphviz file format of graph")
+    arg_parser.add_argument("--save-gv", action = "store_true", help = "Flag to save Graphviz file format of graph")
+    arg_parser.add_argument('--neighbors', metavar = "Neighbors", type = int, help = "Number of neighbors to show for a specific node")
+    arg_parser.add_argument('--node', metavar = "Node", type = str, help = "Node to start neighbor search at")
     args = arg_parser.parse_args()
+
+    if args.neighbors and not args.node:
+        arg_parser.error("--neighbors requires --node")
 
     ast = ASTCodebaseParser(args.dir, args.dim)
     ast.parse_dir()
@@ -404,6 +409,9 @@ def main():
     
     if args.save_gv:
         ast.convert_to_graphviz()
+
+    if args.neighbors:
+        ast.view_k_neighbors(args.node, args.neighbors)
 
 if __name__ == "__main__":
     main()
