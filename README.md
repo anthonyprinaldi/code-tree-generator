@@ -32,4 +32,30 @@ Do this for every file in the codebase
 - Connect call edges
 
 ## Usage
-TODO
+
+### Download
+To use the `download` script, you must pass as an argument a file that contains github repos separated by newlines. For example the file could look like:
+```
+numba/llvmlite
+simplejson/simplejson
+Hackndo/lsassy
+lunixbochs/ActualVim
+boramalper/himawaripy
+pydicom/pydicom
+bhavsec/reconspider
+```
+And to download all the repos call `download filename.txt`.
+
+### Get Training Data
+To use the `get_training_data` script, pass the directory that you would like to search for GitHub repos and the dimension size for the node features.
+
+#### Output
+The script will create a folder `../repos/` in the parent directory of `code-tree-generator`. Inside this folder you will locate all the cloned repos.
+
+**Note:** the script assumes that you have a virtual environemnt named `venv`.
+
+An example usage of the script would be: `get_training_data ../repos/ 64`.
+
+#### Output
+The script will create a folder `../adj/` and `../node_feats/` that are located in the parent folder of `code-tree-generator`. These folders contain the output adjacency matrix and node features respectively. The files within the folders are named the same as the repository they correspond to.
+
