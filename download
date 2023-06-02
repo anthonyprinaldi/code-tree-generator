@@ -1,0 +1,34 @@
+#!/bin/bash
+repo_dir="../repos/"
+
+echo "-----------------------------------"
+echo "Starting to download files in $1..."
+echo "-----------------------------------"
+echo
+
+if [ ! -d "$repo_dir" ]; then
+  echo "${repo_dir} does not exist...creating"
+  mkdir "$repo_dir"
+fi
+
+cd "$repo_dir"
+
+IFS="/"
+
+while read line; do
+  echo "$line"
+  read -ra array <<< "$line"
+  DIR="./${array[1]}"
+
+  if [ -d "$DIR" ];
+  then
+    rm -rf "$DIR"
+  fi
+
+  git clone "https://github.com/$line" 2>> download.log
+done < "$1"
+
+echo
+echo "---------------------------"
+echo "Done downloading all files."
+echo "---------------------------"
