@@ -2,12 +2,17 @@ import argparse
 import copy
 import sys
 from typing import *
+import os
+import re
 
 from tree_sitter import Language, Node, Parser, Tree, TreeCursor
 import networkx as nx
 import numpy as np
 import pandas as pd
 import pygraphviz as pgv
+import fasttext
+import fasttext.util
+
 
 from graph import Graph as G
 from graph import Node as N
@@ -18,6 +23,7 @@ Language.build_library(
 )
 
 PYTHON = Language('build/my-languages.so', 'python')
+CONST = 10e-4
 
 
 class ASTFileParser():
@@ -364,6 +370,63 @@ class ASTFileParser():
         neighbors(g, node_id, depth)
 
         g_k.write('tree.gv')
+
+    def csv_features_to_vectors(self, nf: str) -> None:
+        # check that the files exist
+        if not os.path.exists(nf):
+            raise Exception(f'File {nf} does not exist.')
+        else:
+            self._csv_features_to_vectors(nf)
+        
+    def _csv_features_to_vectors(self, nf: str) -> None:
+        df = pd.read_csv(nf, header = 0)
+        fasttext.util.download_model('en', if_exists='ignore')
+        ft = fasttext.load_model('cc.en.300.bin')
+        fasttext.util.reduce_model(ft, self._dim // 4)
+        self._ft = ft
+
+        # define the embedding functions
+        def location_to_embed(location: str) -> np.ndarray:
+            dim = self._dim // 4
+            # get number between first parentheses and comma
+            x = int(re.search(r"\(([0-9]+),", location).groups()[0])
+            y = int(re.search(r",\s([0-9]+)\)", location).groups()[0])
+            res = np.zeros(dim)
+            i = np.arange(dim // 4)
+            res[2*i] = np.sin(x * CONST ** (4 * i / dim))
+            res[2*i + 1] = np.cos(x * CONST ** (4 * i / dim))
+            res[2*i + dim // 2] = np.sin(y * CONST ** (4 * i / dim))
+            res[2*i + dim // 2 + 1] = np.cos(y * CONST ** (4 * i / dim))
+            return res
+
+        def type_to_embed(type_: str, ft: fasttext.FastText._FastText) -> np.ndarray:
+            return ft.get_word_vector(type_)
+        
+        def text_to_embed(text: str, ft: fasttext.FastText._FastText) -> np.ndarray:
+            return ft.get_word_vector(text)
+        
+        def embed(start: str, end: str, type_: str, text: str, ft: fasttext.FastText._FastText) -> np.ndarray:
+            return np.concatenate([location_to_embed(start), location_to_embed(end), type_to_embed(type_, ft), text_to_embed(text, ft)], axis = 0)
+
+        def get_node_text(node_id: str) -> str:
+            return '' if ' | ' not in node_id else (node_id.split(' | ')[1] if not re.match(r"(.*)(_[0-9]+$)", node_id.split(' | ')[1]) else re.match(r"(.*)(_[0-9]+$)", node_id.split(' | ')[1]).groups()[0])
+        
+        def get_node_type(node_id: str) -> str:
+            return node_id[:node_id.rfind('_')] if ' | ' not in node_id else node_id.split(' | ')[0]
+        
+        # extract features to columns
+        df['start'] = df['feat'].apply(lambda x: x.split('->')[0])
+        df['end'] = df['feat'].apply(lambda x: x.split('->')[1])
+        df['text'] = df['node'].apply(lambda x: get_node_text(x))
+        df['type'] = df['node'].apply(lambda x: get_node_type(x))
+
+        feats = df.apply(
+            lambda row: embed(row.start, row.end, row.type, row.text, self._ft),
+            axis = 1,
+            result_type = "expand"
+        )
+        
+        pd.DataFrame(feats, index = df["node"]).to_csv(nf)
 
         
 
