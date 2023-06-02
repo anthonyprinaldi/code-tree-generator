@@ -17,6 +17,8 @@ import fasttext.util
 from graph import Graph as G
 from graph import Node as N
 
+fasttext.FastText.eprint = lambda x: None
+
 Language.build_library(
     'build/my-languages.so',
     ['../tree-sitter-python']
