@@ -12,6 +12,7 @@ import pandas as pd
 import pygraphviz as pgv
 import fasttext
 import fasttext.util
+import scipy.sparse
 
 
 from graph import Graph as G
@@ -338,14 +339,14 @@ class ASTFileParser():
         nodes = [n for n in g.nodes()]
         feats = [feat['xlabel'] for node, feat in dict(g.nodes(data=True)).items()]
         node_feats = pd.DataFrame({'node': nodes, 'feat': feats})
-        node_feats.to_csv(nf, index = False)
-        print(f'Saved node features to {nf}')
+        node_feats.to_csv(f"{nf}.csv", index = False)
+        print(f'Saved node features to {nf}.csv')
         del node_feats
         del nodes
         del feats
-        adj_np = nx.to_numpy_array(g, dtype = np.bool_, weight = None)
-        np.savetxt(adj, adj_np, delimiter = ',', fmt = '%.0f')
-        print(f'Saved adjacency matrix to {adj}')
+        adj_sparse = nx.to_scipy_sparse_array(g, dtype = np.bool_, weight = None)
+        scipy.sparse.save_npz(adj, adj_sparse)
+        print(f'Saved adjacency matrix to {adj}.npz')
 
     def _to_networkx(self) -> nx.DiGraph:
         g : pgv.AGraph = self.convert_to_graphviz()
@@ -375,13 +376,13 @@ class ASTFileParser():
 
     def csv_features_to_vectors(self, nf: str) -> None:
         # check that the files exist
-        if not os.path.exists(nf):
-            raise Exception(f'File {nf} does not exist.')
+        if not os.path.exists(f"{nf}.csv"):
+            raise Exception(f'File {nf}.csv does not exist.')
         else:
             self._csv_features_to_vectors(nf)
         
     def _csv_features_to_vectors(self, nf: str) -> None:
-        df = pd.read_csv(nf, header = 0)
+        df = pd.read_csv(f"{nf}.csv", header = 0)
         if os.path.exists(f'cc.en.{self._dim // 4}.bin'):
             ft = fasttext.load_model(f'cc.en.{self._dim // 4}.bin')
         else:
@@ -432,7 +433,7 @@ class ASTFileParser():
             result_type = "expand"
         )
         feats.index = df['node']
-        feats.to_csv(nf)
+        feats.to_csv(f"{nf}.csv")
 
 def main():
     arg_parser = argparse.ArgumentParser()
