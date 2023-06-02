@@ -380,9 +380,13 @@ class ASTFileParser():
         
     def _csv_features_to_vectors(self, nf: str) -> None:
         df = pd.read_csv(nf, header = 0)
-        fasttext.util.download_model('en', if_exists='ignore')
-        ft = fasttext.load_model('cc.en.300.bin')
-        fasttext.util.reduce_model(ft, self._dim // 4)
+        if os.path.exists(f'cc.en.{self._dim // 4}.bin'):
+            ft = fasttext.load_model(f'cc.en.{self._dim // 4}.bin')
+        else:
+            fasttext.util.download_model('en', if_exists='ignore')
+            ft = fasttext.load_model('cc.en.300.bin')
+            fasttext.util.reduce_model(ft, self._dim // 4)
+            ft.save_model(f'cc.en.{self._dim // 4}.bin')
         self._ft = ft
 
         # define the embedding functions
@@ -425,10 +429,8 @@ class ASTFileParser():
             axis = 1,
             result_type = "expand"
         )
-        
-        pd.DataFrame(feats, index = df["node"]).to_csv(nf)
-
-        
+        feats.index = df['node']
+        feats.to_csv(nf)
 
 def main():
     arg_parser = argparse.ArgumentParser()
