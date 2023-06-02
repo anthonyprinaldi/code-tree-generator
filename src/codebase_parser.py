@@ -20,8 +20,9 @@ class ASTCodebaseParser(ASTFileParser):
 
     BUILTINS = dir(__builtins__)
 
-    def __init__(self, dir: str) -> None:
+    def __init__(self, dir: str, dim: int) -> None:
         self._dir : str = dir
+        self._dim : int = dim
         self._relative_files = self.get_files()
 
         self._parser = Parser()
@@ -392,17 +393,17 @@ def main():
     arg_parser.add_argument("--dir", metavar = "Directory", type=str, required=True, help="Path to directory to parse")
     arg_parser.add_argument("--nf", metavar = "Node features", type = str, required = True, help = "File to save node features to")
     arg_parser.add_argument("--adj", metavar = "Adjacency matrix", type = str, required = True, help = "File to save adjacency matrix t0")
+    arg_parser.add_argument("--dim", metavar = "Dimension", type = int, required = True, help = "Dimension of the node features")
+    arg_parser.add_argument("--save-gv", action="store_true", help = "Flag to save Graphviz file format of graph")
     args = arg_parser.parse_args()
 
-    ast = ASTCodebaseParser(args.dir)
+    ast = ASTCodebaseParser(args.dir, args.dim)
     ast.parse_dir()
     ast.to_csv(args.nf, args.adj)
-    # ast.convert_to_graphviz()
-
-    # ast.view_k_neighbors("module | ../Gymnasium/gymnasium/core.py", 6)
-
-    # import ast
-    # print(ast.dump(ast.parse(file), indent = 5))
+    ast.csv_features_to_vectors(args.nf)
+    
+    if args["save-gv"]:
+        ast.convert_to_graphviz()
 
 if __name__ == "__main__":
     main()
