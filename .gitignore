@@ -170,3 +170,6 @@ cython_debug/
 # ignore fasttext model files
 cc.en.*.bin
 cc.en.*.bin.gz
+
+# numpy compressed
+*.npz
