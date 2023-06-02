@@ -402,7 +402,7 @@ def main():
     ast.to_csv(args.nf, args.adj)
     ast.csv_features_to_vectors(args.nf)
     
-    if args["save-gv"]:
+    if args.save_gv:
         ast.convert_to_graphviz()
 
 if __name__ == "__main__":
