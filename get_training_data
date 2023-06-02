@@ -1,0 +1,42 @@
+#!/bin/bash
+venv_path="venv"
+search_dir="$1"
+adj_dir="../adj/"
+node_feat_dir="../node_feats/"
+
+if [ ! -d "$search_dir" ]; then
+    echo "Directory does not exist: $search_dir"
+    exit 1
+fi
+
+if [ ! -d "$venv_path" ]; then
+  echo "Virtual env path does not exist: $venv_path"
+  exit 1
+fi
+
+if [ ! -d "$adj_dir" ]; then
+  echo "${adj_dir} does not exist...creating"
+  mkdir "$adj_dir"
+fi
+
+if [ ! -d "$node_feat_dir" ]; then
+  echo "${node_feat_dir} does not exist...creating"
+  mkdir "$node_feat_dir"
+fi
+
+source "${venv_path}/bin/activate"
+
+for folder in "$search_dir"/*; do
+  if [ -d "$folder" ]; then
+    base="$(basename "$folder")"
+    echo -n "${base}..."
+    # run the python script for generating the tree
+    python3 src/codebase_parser.py \
+      --dir "$folder" \
+      --nf "${node_feat_dir}${base}.csv" \
+      --adj "${adj_dir}${base}.csv" \
+      --dim "$2" >> "../$(basename "$0").log"
+    echo "Done"
+    exit 1
+  fi
+done
