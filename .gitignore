@@ -166,3 +166,7 @@ cython_debug/
 
 # ignore python profiling files
 *.profile
+
+# ignore fasttext model files
+cc.en.300.bin
+cc.en.300.bin.gz
