@@ -168,5 +168,5 @@ cython_debug/
 *.profile
 
 # ignore fasttext model files
-cc.en.300.bin
-cc.en.300.bin.gz
+cc.en.*.bin
+cc.en.*.bin.gz
