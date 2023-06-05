@@ -37,6 +37,5 @@ for folder in "$search_dir"/*; do
       --adj "${adj_dir}${base}.csv" \
       --dim "$2" >> "../$(basename "$0").log"
     echo "Done"
-    exit 1
   fi
 done
