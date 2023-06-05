@@ -33,8 +33,8 @@ for folder in "$search_dir"/*; do
     # run the python script for generating the tree
     python3 src/codebase_parser.py \
       --dir "$folder" \
-      --nf "${node_feat_dir}${base}.csv" \
-      --adj "${adj_dir}${base}.csv" \
+      --nf "${node_feat_dir}${base}" \
+      --adj "${adj_dir}${base}" \
       --dim "$2" >> "../$(basename "$0").log"
     echo "Done"
   fi
