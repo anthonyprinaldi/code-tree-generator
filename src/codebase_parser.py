@@ -188,9 +188,28 @@ class ASTCodebaseParser(ASTFileParser):
                     path_new = (path[:path.rfind(txt)-1] if len(path) - path.rfind(txt) == len(txt) else path) \
                         if not import_id.startswith('aliased_import') \
                         else (path[:path.rfind('.')] if '.' in path else path)
+
+
+                    # replace any leading double period in path_new with a double period and a slash
+                    if '..' in path_new:
+                        path_new = re.sub(r'^\.\.', '../', path_new)
+                        path_new = re.sub(r'(?<!\.)\.(?!\.)', '/', path_new)
+                        path_new = os.path.normpath(os.path.join(os.path.dirname(file), path_new)) + '.py'
+                        imported_from = [f for f in self._relative_files if path_new in f]
+
+                    # replace any leading period in path_new with nothing
+                    elif path_new.startswith('.') and '/' not in path_new:
+                        path_new = path_new[1:]
+                        path_new = re.sub(r'(?<!\.)\.(?!\.)', '/', path_new)
+                        path_new = os.path.normpath(os.path.join(os.path.dirname(file), path_new)) + '.py'
+                        imported_from = [f for f in self._relative_files if path_new in f]
+
+                    else:
+                        # find which file we are importing the constant from
+                        imported_from = [f for f in self._relative_files if path_new.replace('.', '/') in f]
                     
-                    # find which file we are importing the constant from
-                    imported_from = [f for f in self._relative_files if path_new.replace('.', '/') in f]
+                    # # find which file we are importing the constant from
+                    # imported_from = [f for f in self._relative_files if path_new.replace('.', '/') in f]
                     if imported_from:
                         imported_from = imported_from[0]
                         if imported_from in self._assignments:
@@ -200,6 +219,14 @@ class ASTCodebaseParser(ASTFileParser):
                                 self._edges_to_add.append((self._assignments[imported_from][func_new][1], node_id))
                         else:
                             self._delayed_assignment_edges_to_add.append((node_id, imported_from, func_new))
+                        
+                        if imported_from in self._function_definitions:
+                            if func_new in self._function_definitions[imported_from]:
+                                # add edge
+                                self._edges_to_add.append((node_id, self._function_definitions[imported_from][func_new]))
+                                self._edges_to_add.append((self._function_definitions[imported_from][func_new], node_id))
+                        else:
+                            self._delayed_call_edges_to_add.append((node_id, imported_from, func_new))
         ### end handle other imports (constants) from other files ###
 
         ### check if function is defined in the current file ###
@@ -216,7 +243,7 @@ class ASTCodebaseParser(ASTFileParser):
             possible_imports = list(self._imports[file].keys())
             import_ids = [i for _, (i, _) in self._imports[file].items()]
             paths = [p for _, (_, p) in self._imports[file].items()]
-                                    
+
             txt = current_vertex.text
             if any([re.match(r'(^' + s + r'\.|^' + s + r'$)', txt) for s in possible_imports]):
                 func, import_id, path = [
@@ -231,8 +258,24 @@ class ASTCodebaseParser(ASTFileParser):
                     if not import_id.startswith('aliased_import') \
                     else (path[:path.rfind('.')] if '.' in path else path)
                 
-                # find which file we are importing the constant from
-                imported_from = [f for f in self._relative_files if path_new.replace('.', '/') in f]
+                # replace any leading double period in path_new with a double period and a slash
+                if '..' in path_new:
+                    path_new = re.sub(r'^\.\.', '../', path_new)
+                    path_new = re.sub(r'(?<!\.)\.(?!\.)', '/', path_new)
+                    path_new = os.path.normpath(os.path.join(os.path.dirname(file), path_new)) + '.py'
+                    imported_from = [f for f in self._relative_files if path_new in f]
+
+                # replace any leading period in path_new with nothing
+                elif path_new.startswith('.') and '/' not in path_new:
+                    path_new = path_new[1:]
+                    path_new = re.sub(r'(?<!\.)\.(?!\.)', '/', path_new)
+                    path_new = os.path.normpath(os.path.join(os.path.dirname(file), path_new)) + '.py'
+                    imported_from = [f for f in self._relative_files if path_new in f]
+
+                else:
+                    # find which file we are importing the constant from
+                    imported_from = [f for f in self._relative_files if path_new.replace('.', '/') in f]
+                
                 if imported_from:
                     imported_from = imported_from[0]
                     if imported_from in self._function_definitions:
