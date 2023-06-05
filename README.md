@@ -46,11 +46,11 @@ bhavsec/reconspider
 ```
 And to download all the repos call `download filename.txt`.
 
-### Get Training Data
-To use the `get_training_data` script, pass the directory that you would like to search for GitHub repos and the dimension size for the node features.
-
 #### Output
 The script will create a folder `../repos/` in the parent directory of `code-tree-generator`. Inside this folder you will locate all the cloned repos.
+
+### Get Training Data
+To use the `get_training_data` script, pass the directory that you would like to search for GitHub repos and the dimension size for the node features.
 
 **Note:** the script assumes that you have a virtual environemnt named `venv`.
 
