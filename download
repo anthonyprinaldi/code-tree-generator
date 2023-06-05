@@ -25,10 +25,11 @@ while read line; do
     rm -rf "$DIR"
   fi
 
-  git clone "https://github.com/$line" 2>> download.log
+  git clone "https://github.com/$line" 2>> "../$(basename "$0").log"
 done < "$1"
 
 echo
 echo "---------------------------"
 echo "Done downloading all files."
 echo "---------------------------"
+echo "Log file generated: ../$(basename "$0").log"

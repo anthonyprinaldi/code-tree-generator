@@ -14,6 +14,11 @@ if [ ! -d "$venv_path" ]; then
   exit 1
 fi
 
+if [ -f "../$(basename "$0").log" ]; then
+  echo "Removing old log file ../$(basename "$0").log"
+  rm "../$(basename "$0").log"
+fi
+
 if [ ! -d "$adj_dir" ]; then
   echo "${adj_dir} does not exist...creating"
   mkdir "$adj_dir"
@@ -39,3 +44,6 @@ for folder in "$search_dir"/*; do
     echo "Done"
   fi
 done
+
+echo "Done generating all trees."
+echo "Log file generated: ../$(basename "$0").log"
