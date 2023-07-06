@@ -433,6 +433,8 @@ class ASTFileParser():
             result_type = "expand"
         )
         feats.index = df['node']
+        feats['start'] = df['start']
+        feats['end'] = df['end']
         feats.to_csv(f"{nf}.csv")
 
 def main():
