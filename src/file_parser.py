@@ -119,7 +119,7 @@ class ASTFileParser():
     
     def parse(self) -> str:
     
-        def _parse_node(node: Node, parent: G, last_node: Union[N, None]) -> str:
+        def _parse_node(node: Node, parent: G, last_node: Union[N, None], filename: str) -> str:
             # add text if node is terminal
             text = None
             if node.is_named and len(node.children) == 0:
@@ -149,7 +149,7 @@ class ASTFileParser():
                     self._counts[name] += 1
                     name = name + '_' + str(self._counts[name])
             
-            n_ = N(name, node.start_point, node.end_point, type = node.type, parent = last_node)
+            n_ = N(name, node.start_point, node.end_point, filename, type = node.type, parent = last_node)
             if text:
                 n_.text = text
 
@@ -182,12 +182,12 @@ class ASTFileParser():
                 # only use named nodes
                 if not child.is_named:
                     continue
-                to_id_ = _parse_node(child, parent, last_node = n_)
+                to_id_ = _parse_node(child, parent, last_node = n_, filename=filename)
                 parent.add_edge(n_.id, to_id_)
             
             return id
     
-        root_id = _parse_node(self._root, self._AST, last_node = None)
+        root_id = _parse_node(self._root, self._AST, last_node = None, filename = self._filepath)
 
         # check if this is a file or dir parser
         if type(self) == ASTFileParser:
@@ -320,11 +320,11 @@ class ASTFileParser():
             g.add_node(
                 n.id,
                 xlabel=f'{n._start}->{n._end}',
+                label=n.file,
             )
             edges.extend([(n.id, x.id) for x in n.get_connections()])
 
         g.add_edges_from(edges)
-        g.write('tree.gv')
         return g
 
     def to_csv(self, nf: str, adj: str) -> None:
@@ -338,7 +338,8 @@ class ASTFileParser():
 
         nodes = [n for n in g.nodes()]
         feats = [feat['xlabel'] for node, feat in dict(g.nodes(data=True)).items()]
-        node_feats = pd.DataFrame({'node': nodes, 'feat': feats})
+        files = [feat['label'] for node, feat in dict(g.nodes(data=True)).items()]
+        node_feats = pd.DataFrame({'node': nodes, 'feat': feats, 'file': files})
         node_feats.to_csv(f"{nf}.csv", index = False)
         print(f'Saved node features to {nf}.csv')
         del node_feats
@@ -434,6 +435,7 @@ class ASTFileParser():
         )
         feats['start'] = df['start']
         feats['end'] = df['end']
+        feats['file'] = df['file']
         feats.index = df['node']
         feats.to_csv(f"{nf}.csv")
 
