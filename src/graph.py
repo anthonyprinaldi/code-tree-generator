@@ -5,6 +5,7 @@ class Node:
                  id: str,
                  start: str,
                  end: str,
+                 file: str,
                  text: Optional[str] = None,
                  type: Optional[str] = None,
                  var_name: Optional[str] = None,
@@ -12,6 +13,7 @@ class Node:
         self._id = id
         self._start = start
         self._end = end
+        self._file = file
         self._text = text
         self._type = type
         self._var_name = var_name
@@ -25,6 +27,14 @@ class Node:
     @id.setter
     def id(self, value: str) -> None:
         raise Exception("id is read-only.")
+
+    @property
+    def file(self) -> str:
+        return self._file
+
+    @file.setter
+    def file(self, value: str) -> None:
+        raise Exception("file is read-only.")
 
     @property
     def text(self) -> str:
